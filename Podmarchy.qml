@@ -624,8 +624,7 @@ Item {
       payload = ""
       stdinEnabled = false
     }
-    onExited: {
-      var exitCode = authSetProc.exitCode
+    onExited: function(exitCode, exitStatus) {
       var reply = {}
       try { reply = JSON.parse(authSetProc.output || "{}") } catch (e) {}
       if (exitCode === 0) {
