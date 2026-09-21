@@ -1045,16 +1045,21 @@ Item {
               elide: Text.ElideLeft
             }
 
+            // Typing caret. The search field owns the keyboard whenever the
+            // panel is up, so the caret blinks there even before you type, in
+            // front of the placeholder. Popups take the keyboard, so it hides.
             Rectangle {
-              visible: root.filterText.length > 0
+              id: caret
+              readonly property bool focused: root.opened && !root.helpOpen && !root.actionsOpen
+              visible: focused
               width: 1.5
               height: Style.font.subtitle + 2
               color: Color.accent
-              x: searchIcon.x + searchIcon.width + Style.space(9) + searchMeasure.width + 1
+              x: searchIcon.x + searchIcon.width + Style.space(9) + (root.filterText.length > 0 ? searchMeasure.width + 1 : 0)
               anchors.verticalCenter: parent.verticalCenter
               SequentialAnimation on opacity {
                 loops: Animation.Infinite
-                running: root.opened && root.filterText.length > 0
+                running: caret.focused
                 NumberAnimation { to: 0; duration: 530; easing.type: Easing.InQuad }
                 NumberAnimation { to: 1; duration: 530; easing.type: Easing.OutQuad }
               }
