@@ -159,6 +159,16 @@ cmd_search() {
   [[ -n ${term// /} ]] || fail "Type something to search for."
   [[ ${#term} -le 200 ]] || fail "Search term is too long."
   json=$(call /search/byterm "q=$term" "max=40") || { printf '%s\n' "$json"; exit 1; }
+  # Podcast Index matches terms in the feed title only. If a plain search
+  # returns nothing, retry with the words ANDed together so a query like
+  # "hard fork" still finds "Hard Fork" even when word order differs.
+  local count
+  count=$(jq -r '(.feeds // []) | length' <<<"$json")
+  if [[ $count == "0" && $term == *" "* ]]; then
+    local anded
+    anded=$(sed 's/ / AND /g' <<<"$term")
+    json=$(call /search/byterm "q=$anded" "max=40") || { printf '%s\n' "$json"; exit 1; }
+  fi
   jq -c "$PLAIN $FEED"'{feeds: [(.feeds // [])[] | feed]}' <<<"$json" || fail "Podcast Index sent a response Podmarchy could not read."
 }
 
