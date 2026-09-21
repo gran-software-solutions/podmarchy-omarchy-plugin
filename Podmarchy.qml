@@ -935,18 +935,23 @@ Item {
                 root.blurSearch()
                 event.accepted = true
               } else if (event.key === Qt.Key_Up || (event.key === Qt.Key_K && ctrl)) {
+                root.blurSearch()
                 root.select(-1)
                 event.accepted = true
               } else if (event.key === Qt.Key_Down || (event.key === Qt.Key_J && ctrl)) {
+                root.blurSearch()
                 root.select(1)
                 event.accepted = true
               } else if (event.key === Qt.Key_H && ctrl) {
+                root.blurSearch()
                 root.cycleView(-1)
                 event.accepted = true
               } else if (event.key === Qt.Key_L && ctrl) {
+                root.blurSearch()
                 root.cycleView(1)
                 event.accepted = true
               } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                root.blurSearch()
                 if (root.cursorActive) root.activate(root.currentRow(), shift)
                 else if (root.rows.length > 0) root.cursorActive = true
                 event.accepted = true
