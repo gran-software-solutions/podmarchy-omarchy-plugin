@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Ui
+import qs.Commons
 
 // A titled group of shortcut rows.
 Column {

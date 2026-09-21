@@ -8,6 +8,7 @@ Item {
 
   property var root
   property var keyCatcher
+  property bool saving: false
 
   anchors.fill: parent
 
@@ -211,7 +212,7 @@ Item {
               id: saveLabel
               anchors.centerIn: parent
               textFormat: Text.PlainText
-              text: popup.root.authSetProc.running ? "Saving…" : "Save"
+              text: popup.saving ? "Saving…" : "Save"
               color: popup.root.keycapText
               font.family: popup.root.fontFamily
               font.pixelSize: popup.root.metaFont

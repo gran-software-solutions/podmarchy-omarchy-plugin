@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Ui
+import qs.Commons
 
 // Small label used in the settings popup.
 Text {

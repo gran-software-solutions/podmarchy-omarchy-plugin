@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Ui
+import qs.Commons
 
 // A small keycap badge used for shortcut hints.
 Rectangle {

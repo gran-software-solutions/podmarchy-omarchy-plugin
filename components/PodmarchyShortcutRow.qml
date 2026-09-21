@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Ui
+import qs.Commons
 
 // One shortcut hint: one or more keycaps followed by a description.
 Row {
