@@ -6,6 +6,7 @@ import qs.Commons
 Column {
   id: root
 
+  property var ctx
   property string title
   property var rows: []
 
@@ -14,9 +15,9 @@ Column {
   Text {
     textFormat: Text.PlainText
     text: root.title
-    color: selectedText
-    font.family: fontFamily
-    font.pixelSize: metaFont
+    color: root.ctx.selectedText
+    font.family: root.ctx.fontFamily
+    font.pixelSize: root.ctx.metaFont
     font.letterSpacing: 1.4
     font.weight: Font.DemiBold
     bottomPadding: Style.space(4)
@@ -26,6 +27,7 @@ Column {
     model: root.rows
     delegate: PodmarchyShortcutRow {
       required property var modelData
+      ctx: root.ctx
       keys: modelData.keys
       label: modelData.label
     }

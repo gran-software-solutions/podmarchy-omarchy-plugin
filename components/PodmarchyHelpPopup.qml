@@ -319,6 +319,7 @@ Item {
         spacing: Style.space(20)
 
         PodmarchyShortcutGroup {
+          ctx: popup.root
           title: "NAVIGATE"
           rows: [
             { keys: ["Ctrl+J", "Ctrl+K"], label: "move" },
@@ -329,6 +330,7 @@ Item {
         }
 
         PodmarchyShortcutGroup {
+          ctx: popup.root
           title: "LISTEN"
           rows: [
             { keys: ["Enter"], label: "open show / play" },
@@ -339,6 +341,7 @@ Item {
         }
 
         PodmarchyShortcutGroup {
+          ctx: popup.root
           title: "LIBRARY"
           rows: [
             { keys: ["Ctrl+P"], label: "subscribe / unsubscribe" },
@@ -349,6 +352,7 @@ Item {
         }
 
         PodmarchyShortcutGroup {
+          ctx: popup.root
           title: "PANEL"
           rows: [
             { keys: ["?"], label: "this reference" },

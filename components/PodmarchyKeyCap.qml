@@ -6,13 +6,15 @@ import qs.Commons
 Rectangle {
   id: root
 
+  property var ctx
   property string label
   property bool primary: false
-  property color fillColor: primary ? keycapAccentFill : keycapFill
-  property color strokeColor: primary ? keycapAccentBorder : keycapBorder
-  property color textColor: keycapText
-  property int textSize: metaFont
-  property int capHeight: root.metaFont + Style.space(7)
+
+  readonly property color fillColor: primary ? ctx.keycapAccentFill : ctx.keycapFill
+  readonly property color strokeColor: primary ? ctx.keycapAccentBorder : ctx.keycapBorder
+  readonly property color textColor: ctx.keycapText
+  readonly property int textSize: ctx.metaFont
+  readonly property int capHeight: ctx.metaFont + Style.space(7)
 
   width: keyCapLabel.implicitWidth + Style.space(9)
   height: capHeight
@@ -26,9 +28,9 @@ Rectangle {
     anchors.centerIn: parent
     textFormat: Text.PlainText
     text: root.label
-    color: textColor
-    font.family: fontFamily
-    font.pixelSize: textSize
+    color: root.textColor
+    font.family: ctx.fontFamily
+    font.pixelSize: root.textSize
     font.weight: root.primary ? Font.DemiBold : Font.Normal
   }
 }

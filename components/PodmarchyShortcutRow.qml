@@ -6,6 +6,7 @@ import qs.Commons
 Row {
   id: root
 
+  property var ctx
   property var keys: []
   property string label
 
@@ -13,23 +14,27 @@ Row {
 
   Row {
     width: Style.space(104)
-    height: referenceRowHeight
+    height: ctx.referenceRowHeight
     spacing: Style.space(3)
 
     Repeater {
       model: root.keys
-      delegate: PodmarchyKeyCap { required property string modelData; label: modelData }
+      delegate: PodmarchyKeyCap {
+        required property string modelData
+        ctx: root.ctx
+        label: modelData
+      }
     }
   }
 
   Text {
     textFormat: Text.PlainText
     text: root.label
-    color: hintLabel
-    height: referenceRowHeight
+    color: ctx.hintLabel
+    height: ctx.referenceRowHeight
     verticalAlignment: Text.AlignVCenter
-    font.family: fontFamily
-    font.pixelSize: metaFont
+    font.family: ctx.fontFamily
+    font.pixelSize: ctx.metaFont
     anchors.verticalCenter: parent.verticalCenter
   }
 }
