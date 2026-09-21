@@ -843,8 +843,6 @@ Item {
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (root.cursorActive) root.activate(root.currentRow(), shift)
             else if (root.rows.length > 0) root.cursorActive = true
-          } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127) {
-            root.setFilter(root.filterText + event.text)
           } else {
             return
           }
