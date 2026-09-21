@@ -422,6 +422,15 @@ Item {
     } catch (e) {}
   }
 
+  function focusSearch() {
+    searchField.focus = true
+  }
+
+  function blurSearch() {
+    searchField.focus = false
+    keyCatcher.forceActiveFocus()
+  }
+
   function saveLanguage(text) {
     var lang = String(text || "").trim().toLowerCase()
     if (lang && !/^[a-z,-]{2,40}$/.test(lang)) return
@@ -770,8 +779,8 @@ Item {
           if (root.actionsOpen) {
             var n = actionsModel.count
             if (event.key === Qt.Key_Escape) root.closeActions()
-            else if ((event.key === Qt.Key_K && ctrl) || event.key === Qt.Key_Up) { if (n > 0) root.actionIndex = (root.actionIndex - 1 + n) % n }
-            else if ((event.key === Qt.Key_J && ctrl) || event.key === Qt.Key_Down) { if (n > 0) root.actionIndex = (root.actionIndex + 1) % n }
+            else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) { if (n > 0) root.actionIndex = (root.actionIndex - 1 + n) % n }
+            else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) { if (n > 0) root.actionIndex = (root.actionIndex + 1) % n }
             else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) root.runActionIndex(root.actionIndex)
             else if (event.key === Qt.Key_Backspace) { root.actionFilter = root.actionFilter.slice(0, -1); root.rebuildActions() }
             else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127) {
@@ -789,19 +798,19 @@ Item {
             if (root.helpOpen) root.helpOpen = false
             else if (root.filterText) root.setFilter("")
             else if (!root.back()) root.close()
-          } else if (event.key === Qt.Key_Space && ctrl) {
-            if (root.playing) root.player(["toggle"])
-          } else if (event.key === Qt.Key_Left && ctrl) {
+          } else if (event.key === Qt.Key_K && ctrl) {
+            root.player(["toggle"])
+          } else if (event.key === Qt.Key_J && ctrl) {
             root.player(["seek", "-15"])
-          } else if (event.key === Qt.Key_Right && ctrl) {
+          } else if (event.key === Qt.Key_L && ctrl) {
             root.player(["seek", "30"])
           } else if (event.key === Qt.Key_S && ctrl) {
             root.player(["stop"])
           } else if (event.key === Qt.Key_O && ctrl) {
             root.previewOpen = !root.previewOpen
-          } else if (event.key === Qt.Key_K && ctrl) {
+          } else if (event.key === Qt.Key_K && !ctrl) {
             root.select(-1)
-          } else if (event.key === Qt.Key_J && ctrl) {
+          } else if (event.key === Qt.Key_J && !ctrl) {
             root.select(1)
           } else if (event.key === Qt.Key_P && ctrl) {
             root.toggleSubscribe()
@@ -822,8 +831,8 @@ Item {
           } else if (event.key === Qt.Key_Backspace && !root.filterText && root.openShow) {
             // Backspace on an empty search steps out of a show, like a file browser.
             root.back()
-          } else if (Util.editsFilter(event, root.filterText)) {
-            root.setFilter(Util.editedFilter(event, root.filterText))
+          } else if (event.key === Qt.Key_Escape && searchField.focus) {
+            root.blurSearch()
           } else if (event.key === Qt.Key_Delete) {
             root.removeSelected()
           } else if (event.key === Qt.Key_Up) {
@@ -833,6 +842,8 @@ Item {
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (root.cursorActive) root.activate(root.currentRow(), shift)
             else if (root.rows.length > 0) root.cursorActive = true
+          } else if (event.key === Qt.Key_Slash) {
+            root.focusSearch()
           } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127) {
             root.setFilter(root.filterText + event.text)
           } else {
@@ -917,8 +928,32 @@ Item {
             radius: Style.space(8)
             color: Util.alpha(root.foreground, 0.05)
             border.width: 1
-            border.color: root.filterText.length > 0 ? Util.alpha(Color.accent, 0.55) : Util.alpha(root.foreground, 0.10)
+            border.color: searchField.focus ? Util.alpha(Color.accent, 0.55) : Util.alpha(root.foreground, 0.10)
             Behavior on border.color { ColorAnimation { duration: 120 } }
+
+            Keys.priority: Keys.BeforeItem
+            Keys.onPressed: function(event) {
+              if (event.key === Qt.Key_Escape) {
+                root.blurSearch()
+                event.accepted = true
+              } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
+                root.select(-1)
+                event.accepted = true
+              } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+                root.select(1)
+                event.accepted = true
+              } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                if (root.cursorActive) root.activate(root.currentRow(), shift)
+                else if (root.rows.length > 0) root.cursorActive = true
+                event.accepted = true
+              } else if (Util.editsFilter(event, root.filterText)) {
+                root.setFilter(Util.editedFilter(event, root.filterText))
+                event.accepted = true
+              } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127) {
+                root.setFilter(root.filterText + event.text)
+                event.accepted = true
+              }
+            }
 
             Text {
               id: searchIcon
@@ -950,12 +985,11 @@ Item {
               elide: Text.ElideLeft
             }
 
-            // Typing caret. The search field owns the keyboard whenever the
-            // panel is up, so the caret blinks there even before you type, in
-            // front of the placeholder. Popups take the keyboard, so it hides.
+            // Typing caret. It only blinks when the search field explicitly
+            // has focus, so single-letter playback keys (j/k/l) work elsewhere.
             Rectangle {
               id: caret
-              readonly property bool focused: root.opened && !root.helpOpen && !root.actionsOpen
+              readonly property bool focused: searchField.focus
               visible: focused
               width: 1.5
               height: Style.font.subtitle + 2
@@ -1028,6 +1062,11 @@ Item {
               }
 
               PanelToolTip { visible: clearArea.containsMouse; text: "Clear the search  (Esc)" }
+            }
+
+            MouseArea {
+              anchors.fill: parent
+              onClicked: root.focusSearch()
             }
           }
 
