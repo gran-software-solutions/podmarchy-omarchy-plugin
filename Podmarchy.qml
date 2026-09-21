@@ -813,11 +813,11 @@ Item {
             if (root.playing) root.player(["toggle"])
             else if (root.cursorActive) root.activate(root.currentRow(), shift)
             else if (root.rows.length > 0) root.cursorActive = true
-          } else if (event.key === Qt.Key_K || event.key === Qt.Key_MediaTogglePlayPause) {
+          } else if (event.key === Qt.Key_K && !ctrl || event.key === Qt.Key_MediaTogglePlayPause) {
             root.player(["toggle"])
-          } else if (event.key === Qt.Key_J) {
+          } else if (event.key === Qt.Key_J && !ctrl) {
             root.player(["seek", "-10"])
-          } else if (event.key === Qt.Key_L) {
+          } else if (event.key === Qt.Key_L && !ctrl) {
             root.player(["seek", "30"])
           } else if (event.key === Qt.Key_Left) {
             root.player(["seek", "-15"])
@@ -1944,7 +1944,7 @@ Item {
                 Row {
                   id: hintRow
                   spacing: Style.space(6)
-                  PodmarchyKeyCap { label: hint.modelData.keys; primary: !!hint.modelData.primary; anchors.verticalCenter: parent.verticalCenter }
+                  PodmarchyKeyCap { ctx: root; label: hint.modelData.keys; primary: !!hint.modelData.primary; anchors.verticalCenter: parent.verticalCenter }
                   Text {
                     textFormat: Text.PlainText
                     text: hint.modelData.label
