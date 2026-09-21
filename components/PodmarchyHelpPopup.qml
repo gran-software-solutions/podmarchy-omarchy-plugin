@@ -198,7 +198,7 @@ Item {
 
           Rectangle {
             id: saveButton
-            width: saveLabel.implicitWidth + Style.space(18)
+            width: Math.max(Style.space(42), saveLabel.implicitWidth + Style.space(18))
             height: Style.space(26)
             radius: Style.space(5)
             readonly property bool ready: popup.root.keyDraft.trim() !== "" && popup.root.secretDraft.trim() !== ""
@@ -216,6 +216,8 @@ Item {
               font.family: popup.root.fontFamily
               font.pixelSize: popup.root.metaFont
               font.weight: Font.DemiBold
+              horizontalAlignment: Text.AlignHCenter
+              verticalAlignment: Text.AlignVCenter
             }
 
             MouseArea {
