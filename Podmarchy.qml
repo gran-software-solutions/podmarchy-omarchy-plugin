@@ -829,16 +829,16 @@ Item {
             root.toggleSubscribe()
           } else if (event.key === Qt.Key_D || event.key === Qt.Key_Delete) {
             root.removeSelected()
-          } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_3 && ctrl) {
+          } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_3) {
             root.setView(root.views[event.key - Qt.Key_1].id)
-          } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
-            root.cycleView(event.key === Qt.Key_Backtab || shift ? -1 : 1)
+          } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab || (event.key === Qt.Key_H && ctrl) || (event.key === Qt.Key_L && ctrl)) {
+            root.cycleView(event.key === Qt.Key_Backtab || event.key === Qt.Key_H ? -1 : 1)
           } else if (event.key === Qt.Key_Backspace && !root.filterText && root.openShow) {
             // Backspace on an empty search steps out of a show, like a file browser.
             root.back()
-          } else if (event.key === Qt.Key_Up) {
+          } else if (event.key === Qt.Key_Up || (event.key === Qt.Key_K && ctrl)) {
             root.select(-1)
-          } else if (event.key === Qt.Key_Down) {
+          } else if (event.key === Qt.Key_Down || (event.key === Qt.Key_J && ctrl)) {
             root.select(1)
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (root.cursorActive) root.activate(root.currentRow(), shift)
@@ -932,14 +932,21 @@ Item {
 
             Keys.priority: Keys.BeforeItem
             Keys.onPressed: function(event) {
+              var ctrl = event.modifiers & Qt.ControlModifier
               if (event.key === Qt.Key_Escape) {
                 root.blurSearch()
                 event.accepted = true
-              } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
+              } else if (event.key === Qt.Key_Up || (event.key === Qt.Key_K && ctrl)) {
                 root.select(-1)
                 event.accepted = true
-              } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+              } else if (event.key === Qt.Key_Down || (event.key === Qt.Key_J && ctrl)) {
                 root.select(1)
+                event.accepted = true
+              } else if (event.key === Qt.Key_H && ctrl) {
+                root.cycleView(-1)
+                event.accepted = true
+              } else if (event.key === Qt.Key_L && ctrl) {
+                root.cycleView(1)
                 event.accepted = true
               } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                 if (root.cursorActive) root.activate(root.currentRow(), shift)

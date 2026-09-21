@@ -322,9 +322,9 @@ Item {
           ctx: popup.root
           title: "NAVIGATE"
           rows: [
-            { keys: ["↑", "↓"], label: "move" },
+            { keys: ["↑", "↓", "Ctrl+K", "Ctrl+J"], label: "move" },
             { keys: ["Enter"], label: "open / play" },
-            { keys: ["Tab"], label: "switch view" },
+            { keys: ["Tab", "Ctrl+H", "Ctrl+L"], label: "switch view" },
             { keys: ["Esc"], label: "back, then close" }
           ]
         }
