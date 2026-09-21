@@ -322,21 +322,22 @@ Item {
           ctx: popup.root
           title: "NAVIGATE"
           rows: [
-            { keys: ["Ctrl+J", "Ctrl+K"], label: "move" },
-            { keys: ["Tab", "Shift+Tab"], label: "switch view" },
-            { keys: ["Ctrl+1–3"], label: "pick a view" },
+            { keys: ["↑", "↓"], label: "move" },
+            { keys: ["Enter"], label: "open / play" },
+            { keys: ["Tab"], label: "switch view" },
             { keys: ["Esc"], label: "back, then close" }
           ]
         }
 
         PodmarchyShortcutGroup {
           ctx: popup.root
-          title: "LISTEN"
+          title: "PLAYBACK"
           rows: [
-            { keys: ["Enter"], label: "open show / play" },
-            { keys: ["Shift+Enter"], label: "play from start" },
-            { keys: ["Ctrl+Space"], label: "pause / resume" },
-            { keys: ["Ctrl+←", "Ctrl+→"], label: "back 15 s / ahead 30 s" }
+            { keys: ["Space"], label: "pause / resume" },
+            { keys: ["k"], label: "pause / resume" },
+            { keys: ["j", "l"], label: "back 10 s / ahead 30 s" },
+            { keys: ["←", "→"], label: "back 15 s / ahead 30 s" },
+            { keys: ["q"], label: "stop" }
           ]
         }
 
@@ -344,9 +345,8 @@ Item {
           ctx: popup.root
           title: "LIBRARY"
           rows: [
-            { keys: ["Ctrl+P"], label: "subscribe / unsubscribe" },
-            { keys: ["Delete", "Ctrl+D"], label: "remove from view" },
-            { keys: ["Ctrl+S"], label: "stop playback" },
+            { keys: ["s"], label: "subscribe / unsubscribe" },
+            { keys: ["d"], label: "remove from view" },
             { keys: ["Backspace"], label: "leave a show" }
           ]
         }
@@ -355,10 +355,11 @@ Item {
           ctx: popup.root
           title: "PANEL"
           rows: [
+            { keys: ["/"], label: "search" },
             { keys: ["?"], label: "this reference" },
-            { keys: ["Ctrl+,"], label: "settings" },
-            { keys: ["Ctrl+O"], label: "detail pane" },
-            { keys: ["Ctrl+."], label: "actions menu" }
+            { keys: [","], label: "settings" },
+            { keys: ["."], label: "actions menu" },
+            { keys: ["o"], label: "detail pane" }
           ]
         }
       }

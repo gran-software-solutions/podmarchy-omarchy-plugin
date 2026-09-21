@@ -105,9 +105,9 @@ Item {
   property color rowHover: Util.alpha(root.foreground, 0.045)
 
   readonly property var views: [
-    { id: "library", label: "Library", glyph: "\u{F02CB}", tip: "Shows you subscribe to  (Ctrl+1)" },
-    { id: "discover", label: "Discover", glyph: "\u{F018B}", tip: "Find new shows: what is trending, or type to search  (Ctrl+2)" },
-    { id: "continue", label: "Continue", glyph: "\u{F02DA}", tip: "Episodes you started but have not finished  (Ctrl+3)" }
+    { id: "library", label: "Library", glyph: "\u{F02CB}", tip: "Shows you subscribe to  (1)" },
+    { id: "discover", label: "Discover", glyph: "\u{F018B}", tip: "Find new shows: what is trending, or type to search  (2)" },
+    { id: "continue", label: "Continue", glyph: "\u{F02DA}", tip: "Episodes you started but have not finished  (3)" }
   ]
 
   readonly property bool playing: status.running === true
@@ -490,7 +490,7 @@ Item {
 
     if (row && row.rowType === "show") {
       add("open", "Show episodes", "Enter")
-      add("subscribe", row.subscribed ? "Unsubscribe" : "Subscribe", "Ctrl+P")
+      add("subscribe", row.subscribed ? "Unsubscribe" : "Subscribe", "s")
       if (root.isHttpUrl(row.link)) add("website", "Open website", "")
       if (root.isHttpUrl(row.url)) add("copyfeed", "Copy feed URL", "")
     } else if (row) {
@@ -499,11 +499,11 @@ Item {
                        : (row.state === "progress" ? "Resume" : "Play"), "Enter")
       if (row.position > 0 || live) add("restart", "Play from the start", "Shift+Enter")
       add(row.done ? "unplayed" : "played", row.done ? "Mark as unplayed" : "Mark as played", "")
-      if (root.openShow) add("subscribe", Model.isSubscribed(root.subscriptions, root.openShow.id) ? "Unsubscribe from show" : "Subscribe to show", "Ctrl+P")
+      if (root.openShow) add("subscribe", Model.isSubscribed(root.subscriptions, root.openShow.id) ? "Unsubscribe from show" : "Subscribe to show", "s")
       if (root.isHttpUrl(row.link)) add("website", "Open episode page", "")
       if (root.isHttpUrl(row.url)) add("copyaudio", "Copy audio URL", "")
     }
-    if (root.playing) add("stop", "Stop playback", "Ctrl+S")
+    if (root.playing) add("stop", "Stop playback", "q")
     if (root.subscriptions.length > 0) add("opml", "Export subscriptions as OPML", "")
 
     if (root.actionIndex >= actionsModel.count) root.actionIndex = Math.max(0, actionsModel.count - 1)
@@ -779,8 +779,8 @@ Item {
           if (root.actionsOpen) {
             var n = actionsModel.count
             if (event.key === Qt.Key_Escape) root.closeActions()
-            else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) { if (n > 0) root.actionIndex = (root.actionIndex - 1 + n) % n }
-            else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) { if (n > 0) root.actionIndex = (root.actionIndex + 1) % n }
+            else if (event.key === Qt.Key_Up) { if (n > 0) root.actionIndex = (root.actionIndex - 1 + n) % n }
+            else if (event.key === Qt.Key_Down) { if (n > 0) root.actionIndex = (root.actionIndex + 1) % n }
             else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) root.runActionIndex(root.actionIndex)
             else if (event.key === Qt.Key_Backspace) { root.actionFilter = root.actionFilter.slice(0, -1); root.rebuildActions() }
             else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127) {
@@ -796,45 +796,46 @@ Item {
           // ---- main keys ----
           if (event.key === Qt.Key_Escape) {
             if (root.helpOpen) root.helpOpen = false
+            else if (searchField.focus) root.blurSearch()
             else if (root.filterText) root.setFilter("")
             else if (!root.back()) root.close()
-          } else if (event.key === Qt.Key_K && ctrl) {
-            root.player(["toggle"])
-          } else if (event.key === Qt.Key_J && ctrl) {
-            root.player(["seek", "-15"])
-          } else if (event.key === Qt.Key_L && ctrl) {
-            root.player(["seek", "30"])
-          } else if (event.key === Qt.Key_S && ctrl) {
-            root.player(["stop"])
-          } else if (event.key === Qt.Key_O && ctrl) {
-            root.previewOpen = !root.previewOpen
-          } else if (event.key === Qt.Key_K && !ctrl) {
-            root.select(-1)
-          } else if (event.key === Qt.Key_J && !ctrl) {
-            root.select(1)
-          } else if (event.key === Qt.Key_P && ctrl) {
-            root.toggleSubscribe()
-          } else if (event.key === Qt.Key_Period && ctrl) {
+          } else if (event.key === Qt.Key_Question || (event.key === Qt.Key_Slash && ctrl)) {
+            root.openHelp("shortcuts")
+          } else if (event.key === Qt.Key_Comma || (event.key === Qt.Key_Comma && ctrl)) {
+            root.openHelp("settings")
+          } else if (event.key === Qt.Key_Period || (event.key === Qt.Key_Period && ctrl)) {
             root.openActions()
-          } else if (event.key === Qt.Key_D && ctrl) {
+          } else if (event.key === Qt.Key_O || (event.key === Qt.Key_O && ctrl)) {
+            root.previewOpen = !root.previewOpen
+          } else if (event.key === Qt.Key_Slash) {
+            root.focusSearch()
+          } else if (event.key === Qt.Key_Space && !searchField.focus) {
+            if (root.playing) root.player(["toggle"])
+            else if (root.cursorActive) root.activate(root.currentRow(), shift)
+            else if (root.rows.length > 0) root.cursorActive = true
+          } else if (event.key === Qt.Key_K || event.key === Qt.Key_MediaTogglePlayPause) {
+            root.player(["toggle"])
+          } else if (event.key === Qt.Key_J) {
+            root.player(["seek", "-10"])
+          } else if (event.key === Qt.Key_L) {
+            root.player(["seek", "30"])
+          } else if (event.key === Qt.Key_Left) {
+            root.player(["seek", "-15"])
+          } else if (event.key === Qt.Key_Right) {
+            root.player(["seek", "30"])
+          } else if (event.key === Qt.Key_Q || event.key === Qt.Key_MediaStop) {
+            root.player(["stop"])
+          } else if (event.key === Qt.Key_S) {
+            root.toggleSubscribe()
+          } else if (event.key === Qt.Key_D || event.key === Qt.Key_Delete) {
             root.removeSelected()
           } else if (event.key >= Qt.Key_1 && event.key <= Qt.Key_3 && ctrl) {
             root.setView(root.views[event.key - Qt.Key_1].id)
-          } else if ((event.key === Qt.Key_H || event.key === Qt.Key_L) && ctrl) {
-            root.cycleView(event.key === Qt.Key_H ? -1 : 1)
           } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
             root.cycleView(event.key === Qt.Key_Backtab || shift ? -1 : 1)
-          } else if (event.key === Qt.Key_Comma && ctrl) {
-            root.openHelp("settings")
-          } else if (event.key === Qt.Key_Question) {
-            root.openHelp("shortcuts")
           } else if (event.key === Qt.Key_Backspace && !root.filterText && root.openShow) {
             // Backspace on an empty search steps out of a show, like a file browser.
             root.back()
-          } else if (event.key === Qt.Key_Escape && searchField.focus) {
-            root.blurSearch()
-          } else if (event.key === Qt.Key_Delete) {
-            root.removeSelected()
           } else if (event.key === Qt.Key_Up) {
             root.select(-1)
           } else if (event.key === Qt.Key_Down) {
@@ -842,8 +843,6 @@ Item {
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (root.cursorActive) root.activate(root.currentRow(), shift)
             else if (root.rows.length > 0) root.cursorActive = true
-          } else if (event.key === Qt.Key_Slash) {
-            root.focusSearch()
           } else if (event.text && event.text.length === 1 && event.text.charCodeAt(0) >= 32 && event.text.charCodeAt(0) !== 127) {
             root.setFilter(root.filterText + event.text)
           } else {
@@ -914,7 +913,7 @@ Item {
               onClicked: root.back()
             }
 
-            PanelToolTip { visible: backArea.containsMouse; text: "Back to the list of shows  (Esc)" }
+            PanelToolTip { visible: backArea.containsMouse; text: "Back to the list of shows  (Esc or Backspace)" }
           }
 
           Rectangle {
@@ -1061,7 +1060,7 @@ Item {
                 onClicked: root.setFilter("")
               }
 
-              PanelToolTip { visible: clearArea.containsMouse; text: "Clear the search  (Esc)" }
+              PanelToolTip { visible: clearArea.containsMouse; text: "Clear the search  (Esc or click)" }
             }
 
             MouseArea {
@@ -1641,8 +1640,8 @@ Item {
 
                     PanelToolTip {
                       visible: subArea.containsMouse
-                      text: (subButton.subbed ? "Remove " : "Add ") + (previewPane.isShow ? "this show" : "“" + subButton.show.title + "”")
-                            + (subButton.subbed ? " from" : " to") + " your Library  (Ctrl+P)"
+                      text: (subButton.subbed ? "Remove " : "Add ") + (previewPane.isShow ? "this show" : "“" + (subButton.show ? subButton.show.title : "") + "”")
+                            + (subButton.subbed ? " from" : " to") + " your Library  (s)"
                     }
                   }
 
@@ -1811,8 +1810,8 @@ Item {
               text: {
                 if (root.busy || root.filterText) return ""
                 if (!root.apiConfigured && (root.view === "discover" || root.openShow))
-                  return "It is free: get a key at api.podcastindex.org, then paste it in settings (Ctrl+,)."
-                if (root.view === "library" && !root.openShow) return "Press Tab to discover shows, then Ctrl+P to subscribe."
+                  return "It is free: get a key at api.podcastindex.org, then paste it in settings (,)."
+                if (root.view === "library" && !root.openShow) return "Press Tab to discover shows, then s to subscribe."
                 if (root.view === "continue") return "Episodes you start show up here."
                 return ""
               }
@@ -1872,7 +1871,7 @@ Item {
                 onClicked: root.player(["toggle"])
               }
 
-              PanelToolTip { visible: nowGlyphArea.containsMouse; text: root.status.paused ? "Carry on playing  (Ctrl+Space)" : "Pause  (Ctrl+Space)" }
+              PanelToolTip { visible: nowGlyphArea.containsMouse; text: root.status.paused ? "Carry on playing  (Space or k)" : "Pause  (Space or k)" }
             }
 
             Text {
@@ -1918,13 +1917,13 @@ Item {
                 var target = root.subscribeTarget()
                 if (target) {
                   var subbed = Model.isSubscribed(root.subscriptions, target.id)
-                  list.push({ id: "subscribe", keys: "Ctrl+P", label: subbed ? "Unsubscribe" : "Subscribe",
+                  list.push({ id: "subscribe", keys: "s", label: subbed ? "Unsubscribe" : "Subscribe",
                               tip: subbed ? "Remove this show from your Library" : "Add this show to your Library" })
                 }
                 if (root.playing && !(r && r.rowType === "episode" && String(root.nowEpisode.id) === String(r.id)))
-                  list.push({ id: "pause", keys: "Ctrl+Space", label: root.status.paused ? "Resume" : "Pause",
+                  list.push({ id: "pause", keys: "k", label: root.status.paused ? "Resume" : "Pause",
                               tip: root.status.paused ? "Carry on playing what you were listening to" : "Pause what is playing" })
-                list.push({ id: "actions", keys: "Ctrl+.", label: "Actions", tip: "More things you can do with this item" },
+                list.push({ id: "actions", keys: ".", label: "Actions", tip: "More things you can do with this item" },
                           { id: "keys", keys: "?", label: "Keys", tip: "Show all keyboard shortcuts" })
                 return list
               }
@@ -1995,7 +1994,7 @@ Item {
 
             PanelToolTip {
               visible: gearArea.containsMouse
-              text: root.apiConfigured ? "Settings  (Ctrl+,)" : "Settings: add your free Podcast Index key here  (Ctrl+,)"
+              text: root.apiConfigured ? "Settings  (,)" : "Settings: add your free Podcast Index key here  (,)"
             }
           }
         }
