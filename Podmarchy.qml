@@ -281,10 +281,10 @@ Item {
 
   // Ctrl+P: follows the focused show, or the open show from its episode list.
   function toggleSubscribe() {
-    var target = null
-    var row = root.currentRow()
-    if (row && row.rowType === "show") target = row
-    else if (root.openShow) target = root.openShow
+    root.toggleSubscribeShow(root.subscribeTarget())
+  }
+
+  function toggleSubscribeShow(target) {
     if (!target) return
     root.subscriptions = Model.toggleSubscription(root.subscriptions, target)
     root.saveSubscriptions()
@@ -1399,17 +1399,22 @@ Item {
                   }
                 }
 
+                // Heart: filled when subscribed; on show rows an outline appears
+                // on hover, and clicking it subscribes or unsubscribes.
                 Text {
                   id: trailing
+                  readonly property bool shown: listRow.modelData.subscribed || (listRow.isShow && (listRow.hovered || heartArea.containsMouse || listRow.hasCursor))
                   anchors.right: parent.right
                   anchors.rightMargin: Style.space(12)
                   anchors.verticalCenter: parent.verticalCenter
-                  width: listRow.modelData.subscribed ? implicitWidth : 0
-                  text: listRow.modelData.subscribed ? "\u{F02D1}" : ""
+                  width: listRow.isShow || listRow.modelData.subscribed ? Style.font.title : 0
+                  horizontalAlignment: Text.AlignHCenter
+                  text: listRow.modelData.subscribed ? "\u{F02D1}" : "\u{F02D5}"
                   color: Color.accent
-                  opacity: 0.7
+                  opacity: !shown ? 0 : (heartArea.containsMouse ? 1 : (listRow.modelData.subscribed ? 0.7 : 0.45))
                   font.family: root.fontFamily
-                  font.pixelSize: Style.font.caption
+                  font.pixelSize: heartArea.containsMouse ? Style.font.title : Style.font.body
+                  Behavior on opacity { NumberAnimation { duration: 110 } }
                 }
 
                 Timer {
@@ -1436,6 +1441,23 @@ Item {
                     root.selectedIndex = listRow.index
                     root.activate(listRow.modelData, false)
                   }
+                }
+
+                MouseArea {
+                  id: heartArea
+                  visible: listRow.isShow
+                  anchors.right: parent.right
+                  anchors.top: parent.top
+                  anchors.bottom: parent.bottom
+                  width: Style.space(40)
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.toggleSubscribeShow(listRow.modelData)
+                }
+
+                PanelToolTip {
+                  visible: heartArea.containsMouse
+                  text: listRow.modelData.subscribed ? "Unsubscribe: remove from your Library" : "Subscribe: add to your Library"
                 }
               }
             }
@@ -1628,6 +1650,50 @@ Item {
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.body
                     elide: Text.ElideRight
+                  }
+
+                  // Subscribe button for the show in view.
+                  Rectangle {
+                    id: subButton
+                    // A show's own pane, or an episode's pane inside an open show.
+                    readonly property var show: previewPane.isShow ? previewPane.row : root.openShow
+                    readonly property bool subbed: !!show && Model.isSubscribed(root.subscriptions, show.id)
+                    readonly property bool hot: subArea.containsMouse
+                    visible: !!show
+                    width: subLabel.implicitWidth + Style.space(22)
+                    height: Style.space(26)
+                    radius: Style.space(6)
+                    color: subbed ? (hot ? Util.alpha(root.foreground, 0.08) : "transparent")
+                                  : (hot ? Util.alpha(Color.accent, 0.26) : Util.alpha(Color.accent, 0.16))
+                    border.width: 1
+                    border.color: subbed ? Util.alpha(root.foreground, 0.18) : Util.alpha(Color.accent, 0.5)
+                    Behavior on color { ColorAnimation { duration: 110 } }
+
+                    Text {
+                      id: subLabel
+                      anchors.centerIn: parent
+                      textFormat: Text.PlainText
+                      text: subButton.subbed ? (subButton.hot ? "Unsubscribe" : "\u{F012C}  Subscribed") : "\u{F02D1}  Subscribe"
+                      color: subButton.subbed ? root.foreground : Color.accent
+                      opacity: subButton.subbed && !subButton.hot ? 0.75 : 1
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.caption
+                      font.weight: Font.DemiBold
+                    }
+
+                    MouseArea {
+                      id: subArea
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.toggleSubscribeShow(subButton.show)
+                    }
+
+                    PanelToolTip {
+                      visible: subArea.containsMouse
+                      text: (subButton.subbed ? "Remove " : "Add ") + (previewPane.isShow ? "this show" : "“" + subButton.show.title + "”")
+                            + (subButton.subbed ? " from" : " to") + " your Library  (Ctrl+P)"
+                    }
                   }
 
                   // episode progress, live while it plays
