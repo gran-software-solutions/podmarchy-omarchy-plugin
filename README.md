@@ -12,12 +12,18 @@ pick up where you stopped — without leaving the keyboard.
 
 </div>
 
+> [!IMPORTANT]
+> Podmarchy needs a free **Podcast Index API key and secret** to search and
+> discover shows. Create them at
+> [api.podcastindex.org/signup](https://api.podcastindex.org/signup) before
+> you start — see [Connect Podcast Index](#connect-podcast-index).
+
 ---
 
 ## <img src="icons/lightbulb.png" width="20" alt=""> Why
 
-Podcasts, and nothing else. No account, no sync service, no ads: an index to
-search, a list of shows you follow, and mpv doing the playing.
+Podcasts, and nothing else. No Podmarchy account, no sync service, no ads: an
+index to search, a list of shows you follow, and mpv doing the playing.
 
 ## <img src="icons/list-checks.png" width="20" alt=""> Features
 
@@ -70,14 +76,19 @@ o.bind("SUPER + ALT + P", "Podmarchy", "omarchy-shell shell toggle de.gransoftwa
 
 ### Connect Podcast Index
 
-Discovery needs a free Podcast Index API key — no card, no cost:
+**Required.** Podmarchy has no catalogue of its own: search, trending and
+episode lists all come from the Podcast Index API, which needs your own API
+key **and** API secret. Both are free — no card, no cost:
 
-1. Sign up at [api.podcastindex.org](https://api.podcastindex.org/signup).
-2. Open Podmarchy, press `Ctrl+,`, paste the key and the secret, press Enter.
+1. Sign up at [api.podcastindex.org/signup](https://api.podcastindex.org/signup).
+2. Copy the **API key** and the **API secret** Podcast Index gives you. You
+   need both.
+3. Open Podmarchy, press `Ctrl+,`, paste the key and the secret, press Enter.
 
 The pair is stored in `~/.local/state/omarchy/podmarchy/credentials.json`
-(mode 600) and only ever sent to Podcast Index, as a signed header. Your
-library and playback work without a key; only search and trending need it.
+(mode 600) and only ever sent to Podcast Index, as a signed header. Without
+it you can't search, see trending shows or load a show's episodes; only
+episodes already in Continue can still be resumed.
 
 ### Dependencies
 
