@@ -197,6 +197,7 @@ Item {
           }
 
           Rectangle {
+            id: saveButton
             width: saveLabel.implicitWidth + Style.space(18)
             height: Style.space(26)
             radius: Style.space(5)
@@ -222,12 +223,12 @@ Item {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onClicked: if (parent.ready) popup.root.saveCredentials()
+              onClicked: if (saveButton.ready) popup.root.saveCredentials()
             }
 
             PanelToolTip {
               visible: saveArea.containsMouse
-              text: parent.ready ? "Save the key and secret on this computer" : "Paste both the key and the secret first"
+              text: saveButton.ready ? "Save the key and secret on this computer" : "Paste both the key and the secret first"
             }
           }
         }
