@@ -94,9 +94,9 @@ Item {
   property color rowHover: Util.alpha(root.foreground, 0.045)
 
   readonly property var views: [
-    { id: "library", label: "Library", glyph: "\u{F02CB}" },
-    { id: "discover", label: "Discover", glyph: "\u{F018B}" },
-    { id: "continue", label: "Continue", glyph: "\u{F02DA}" }
+    { id: "library", label: "Library", glyph: "\u{F02CB}", tip: "Shows you subscribe to  (Ctrl+1)" },
+    { id: "discover", label: "Discover", glyph: "\u{F018B}", tip: "Find new shows: what is trending, or type to search  (Ctrl+2)" },
+    { id: "continue", label: "Continue", glyph: "\u{F02DA}", tip: "Episodes you started but have not finished  (Ctrl+3)" }
   ]
 
   readonly property bool playing: status.running === true
@@ -289,6 +289,22 @@ Item {
     root.subscriptions = Model.toggleSubscription(root.subscriptions, target)
     root.saveSubscriptions()
     root.refreshRowsInPlace()
+  }
+
+  // The show Ctrl+P would act on, or null.
+  function subscribeTarget() {
+    var row = root.currentRow()
+    if (row && row.rowType === "show") return row
+    return root.openShow
+  }
+
+  // Footer hints double as buttons.
+  function runHint(id) {
+    if (id === "open" || id === "play") root.activate(root.currentRow(), false)
+    else if (id === "subscribe") root.toggleSubscribe()
+    else if (id === "pause") root.player(["toggle"])
+    else if (id === "actions") root.openActions()
+    else if (id === "keys") root.openHelp("shortcuts")
   }
 
   function markPlayed(row, done) {
@@ -981,6 +997,8 @@ Item {
               cursorShape: Qt.PointingHandCursor
               onClicked: root.back()
             }
+
+            PanelToolTip { visible: backArea.containsMouse; text: "Back to the list of shows  (Esc)" }
           }
 
           Rectangle {
@@ -1066,6 +1084,9 @@ Item {
                 loops: Animation.Infinite
                 from: 0; to: 360; duration: 900
               }
+
+              MouseArea { id: spinnerArea; anchors.fill: parent; hoverEnabled: true }
+              PanelToolTip { visible: spinnerArea.containsMouse; text: "Loading from Podcast Index…" }
             }
 
             Rectangle {
@@ -1095,6 +1116,8 @@ Item {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.setFilter("")
               }
+
+              PanelToolTip { visible: clearArea.containsMouse; text: "Clear the search  (Esc)" }
             }
           }
 
@@ -1167,6 +1190,8 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.setView(chip.modelData.id)
                   }
+
+                  PanelToolTip { visible: chipArea.containsMouse; text: chip.modelData.tip }
                 }
               }
             }
@@ -1823,11 +1848,15 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
 
               MouseArea {
+                id: nowGlyphArea
                 anchors.fill: parent
                 anchors.margins: -4
+                hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.player(["toggle"])
               }
+
+              PanelToolTip { visible: nowGlyphArea.containsMouse; text: root.status.paused ? "Carry on playing  (Ctrl+Space)" : "Pause  (Ctrl+Space)" }
             }
 
             Text {
@@ -1861,26 +1890,59 @@ Item {
             Repeater {
               model: {
                 var r = root.currentRow()
-                var first = r && r.rowType === "show" ? { keys: "Enter", label: "Episodes", primary: true }
-                                                     : { keys: "Enter", label: "Play", primary: true }
-                var list = [first, { keys: "Ctrl+P", label: "Subscribe" }]
-                if (root.playing) list.push({ keys: "Ctrl+Space", label: root.status.paused ? "Resume" : "Pause" })
-                list.push({ keys: "Ctrl+.", label: "Actions" }, { keys: "?", label: "Keys" })
+                var list = []
+                if (r && r.rowType === "show")
+                  list.push({ id: "open", keys: "Enter", label: "Episodes", primary: true, tip: "See this show's episodes" })
+                else if (r) {
+                  var live = root.playing && String(root.nowEpisode.id) === String(r.id)
+                  list.push({ id: "play", keys: "Enter", label: live ? (root.status.paused ? "Resume" : "Pause") : "Play", primary: true,
+                              tip: live ? (root.status.paused ? "Carry on playing this episode" : "Pause this episode")
+                                        : (r.position > 0 && !r.done ? "Play this episode from where you stopped" : "Play this episode") })
+                }
+                var target = root.subscribeTarget()
+                if (target) {
+                  var subbed = Model.isSubscribed(root.subscriptions, target.id)
+                  list.push({ id: "subscribe", keys: "Ctrl+P", label: subbed ? "Unsubscribe" : "Subscribe",
+                              tip: subbed ? "Remove this show from your Library" : "Add this show to your Library" })
+                }
+                if (root.playing && !(r && r.rowType === "episode" && String(root.nowEpisode.id) === String(r.id)))
+                  list.push({ id: "pause", keys: "Ctrl+Space", label: root.status.paused ? "Resume" : "Pause",
+                              tip: root.status.paused ? "Carry on playing what you were listening to" : "Pause what is playing" })
+                list.push({ id: "actions", keys: "Ctrl+.", label: "Actions", tip: "More things you can do with this item" },
+                          { id: "keys", keys: "?", label: "Keys", tip: "Show all keyboard shortcuts" })
                 return list
               }
 
-              delegate: Row {
+              delegate: Item {
+                id: hint
                 required property var modelData
-                spacing: Style.space(6)
-                KeyCap { label: modelData.keys; primary: !!modelData.primary; anchors.verticalCenter: parent.verticalCenter }
-                Text {
-                  textFormat: Text.PlainText
-                  text: modelData.label
-                  color: root.hintLabel
-                  font.family: root.fontFamily
-                  font.pixelSize: root.metaFont
-                  anchors.verticalCenter: parent.verticalCenter
+                width: hintRow.implicitWidth
+                height: hintRow.implicitHeight
+
+                Row {
+                  id: hintRow
+                  spacing: Style.space(6)
+                  KeyCap { label: hint.modelData.keys; primary: !!hint.modelData.primary; anchors.verticalCenter: parent.verticalCenter }
+                  Text {
+                    textFormat: Text.PlainText
+                    text: hint.modelData.label
+                    color: hintArea.containsMouse ? root.foreground : root.hintLabel
+                    font.family: root.fontFamily
+                    font.pixelSize: root.metaFont
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
                 }
+
+                MouseArea {
+                  id: hintArea
+                  anchors.fill: parent
+                  anchors.margins: -3
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.runHint(hint.modelData.id)
+                }
+
+                PanelToolTip { visible: hintArea.containsMouse; text: hint.modelData.tip }
               }
             }
           }
@@ -1913,6 +1975,11 @@ Item {
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               onClicked: root.openHelp("settings")
+            }
+
+            PanelToolTip {
+              visible: gearArea.containsMouse
+              text: root.apiConfigured ? "Settings  (Ctrl+,)" : "Settings: add your free Podcast Index key here  (Ctrl+,)"
             }
           }
         }
@@ -1994,6 +2061,8 @@ Item {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: { root.helpTab = "shortcuts"; keyCatcher.forceActiveFocus() }
               }
+
+              PanelToolTip { visible: tabShortcutsArea.containsMouse; text: "All keyboard shortcuts" }
             }
 
             Item {
@@ -2030,6 +2099,8 @@ Item {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.helpTab = "settings"
               }
+
+              PanelToolTip { visible: tabSettingsArea.containsMouse; text: "Podcast Index key and trending language" }
             }
           }
 
@@ -2104,9 +2175,16 @@ Item {
                 }
 
                 MouseArea {
+                  id: saveArea
                   anchors.fill: parent
+                  hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: if (parent.ready) root.saveCredentials()
+                }
+
+                PanelToolTip {
+                  visible: saveArea.containsMouse
+                  text: parent.ready ? "Save the key and secret on this computer" : "Paste both the key and the secret first"
                 }
               }
             }
@@ -2138,6 +2216,8 @@ Item {
                   cursorShape: Qt.PointingHandCursor
                   onClicked: Quickshell.execDetached(["xdg-open", "https://api.podcastindex.org/signup"])
                 }
+
+                PanelToolTip { visible: signupArea.containsMouse; text: "Open the Podcast Index sign-up page in your browser" }
               }
 
               Text {
