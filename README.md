@@ -119,13 +119,15 @@ else. Subscriptions and listening progress live only in your state directory.
 
 | File | Purpose |
 |------|---------|
-| `Podmarchy.qml` | Overlay UI: views, list, detail pane, settings, actions |
+| `Podmarchy.qml` | Overlay UI shell: views, list, detail pane, state, processes |
 | `PodmarchyModel.js` | Row shaping, filtering, formatting — pure, tested with node |
 | `BarWidget.qml` | Bar button with now-playing tooltip |
+| `components/*.qml` | Reusable UI pieces: keycaps, settings fields, popups |
 | `podmarchy-api` | Podcast Index client; HTML to plain text; key storage |
 | `podmarchy-player` | Starts, pauses, seeks and stops the single mpv |
 | `podmarchy-status.lua` | Runs inside mpv; writes status and progress |
 | `manifest.json` | Plugin manifest — `overlay` + `bar-widget`, `keepLoaded` |
+| `tests/` | Node tests for the model + bash smoke tests |
 
 State lives in `~/.local/state/omarchy/podmarchy/` as `subscriptions.json`,
 `progress.json`, `settings.json` and `credentials.json`; the live player status
@@ -146,8 +148,9 @@ omarchy-shell shell rescanPlugins
 ```
 
 Changes to `PodmarchyModel.js` need `omarchy-restart-shell` (the engine keeps
-imported scripts cached). Run the tests with `node --test tests/`.
-`PODMARCHY_API_BASE` points `podmarchy-api` at a local fixture server.
+imported scripts cached). Run the tests with `npm test` or `node --test tests/`;
+run `npm run test:api` for bash smoke tests. `PODMARCHY_API_BASE` points
+`podmarchy-api` at a local fixture server.
 
 </details>
 

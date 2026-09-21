@@ -3,17 +3,35 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 
-const src = readFileSync(new URL("../PodmarchyModel.js", import.meta.url), "utf8").replace(/^\.pragma library\s*$/m, "")
+const src = readFileSync(new URL("../PodmarchyModel.js", import.meta.url), "utf8")
+  .replace(/^\.pragma library\s*$/m, "")
 const module = { exports: {} }
 new Function("module", src)(module)
 const M = module.exports
 
-const feed = { id: "42", title: "Hard Fork", author: "NYT", image: "https://x/a.jpg", url: "https://feed", categories: "Tech, News", episodeCount: 3 }
+const feed = {
+  id: "42",
+  title: "Hard Fork",
+  author: "NYT",
+  image: "https://x/a.jpg",
+  url: "https://feed",
+  categories: "Tech, News",
+  episodeCount: 3
+}
+
+test("blank row has expected defaults", () => {
+  const row = M.blankRow()
+  assert.equal(row.rowType, "show")
+  assert.equal(row.id, "")
+  assert.equal(row.state, "new")
+  assert.equal(row.episodeCount, 0)
+})
 
 test("clock and duration", () => {
   assert.equal(M.clock(754), "12:34")
   assert.equal(M.clock(3754), "1:02:34")
   assert.equal(M.clock(-5), "0:00")
+  assert.equal(M.clock("not a number"), "0:00")
   assert.equal(M.duration(2520), "42 min")
   assert.equal(M.duration(3900), "1 h 5 min")
   assert.equal(M.duration(0), "")
@@ -30,6 +48,24 @@ test("day labels", () => {
   assert.equal(M.day(at(2026, 2, 3), now), "Mar 3")
   assert.equal(M.day(at(2024, 2, 3), now), "Mar 3, 2024")
   assert.equal(M.day(0, now), "")
+})
+
+test("matches handles missing fields", () => {
+  assert.ok(M.matches("", ["anything"]))
+  assert.ok(M.matches("foo", ["Foo Bar"]))
+  assert.ok(!M.matches("foo", []))
+  assert.ok(!M.matches("foo", null))
+  assert.ok(!M.matches("foo", ["bar"]))
+})
+
+test("subscription set accepts arrays and sets", () => {
+  const set = M.subscribedSet([{ id: "1" }, { id: "2" }])
+  assert.ok(set instanceof Set)
+  assert.ok(set.has("1"))
+  assert.ok(M.isSubscribed(set, "2"))
+  assert.ok(!M.isSubscribed(set, "3"))
+  // Passing a set back should reuse it.
+  assert.equal(M.subscribedSet(set), set)
 })
 
 test("subscribe toggles and keeps the list sorted", () => {
@@ -89,12 +125,19 @@ test("mark played and unplayed", () => {
 test("parsers reject junk", () => {
   assert.deepEqual(M.parseSubscriptions("nope"), [])
   assert.deepEqual(M.parseSubscriptions('[{"id":"12"},{"id":"x"},null]'), [{ id: "12" }])
+  assert.deepEqual(M.parseSubscriptions('{}'), [])
   assert.deepEqual(M.parseProgress("[]"), {})
+  assert.deepEqual(M.parseProgress("not json"), {})
+})
+
+test("xmlEscape escapes all five entities", () => {
+  assert.equal(M.xmlEscape('A & "B" \u003cC\u003e \'D\''), 'A &amp; &quot;B&quot; &lt;C&gt; &apos;D&apos;')
 })
 
 test("OPML escapes attributes", () => {
-  const xml = M.opml([{ title: 'A & "B"', url: "https://f?a=1&b=2" }, { title: "no url" }])
+  const xml = M.opml([{ title: 'A & "B"', url: "https://f?a=1&b=2", link: "https://example.com" }, { title: "no url" }])
   assert.match(xml, /text="A &amp; &quot;B&quot;"/)
   assert.match(xml, /xmlUrl="https:\/\/f\?a=1&amp;b=2"/)
+  assert.match(xml, /htmlUrl="https:\/\/example\.com"/)
   assert.doesNotMatch(xml, /no url/)
 })

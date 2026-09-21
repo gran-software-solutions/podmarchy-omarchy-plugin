@@ -13,19 +13,20 @@
 # and the listening progress on pause, every few seconds and on exit. The
 # system mpv-mpris script, when installed, adds media keys for free.
 
-set -o pipefail
+set -euo pipefail
+shopt -s inherit_errexit 2>/dev/null || true
 umask 077
 
 : "${XDG_RUNTIME_DIR:?Podmarchy requires XDG_RUNTIME_DIR}"
-RUNTIME_DIR="$XDG_RUNTIME_DIR/podmarchy"
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/podmarchy"
-SOCKET="$RUNTIME_DIR/mpv.sock"
-STATUS_FILE="$RUNTIME_DIR/status.json"
-META_FILE="$RUNTIME_DIR/episode.json"
-PID_FILE="$RUNTIME_DIR/mpv.pid"
-LOG_FILE="$RUNTIME_DIR/mpv.log"
-PROGRESS_FILE="$STATE_DIR/progress.json"
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+readonly RUNTIME_DIR="$XDG_RUNTIME_DIR/podmarchy"
+readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/podmarchy"
+readonly SOCKET="$RUNTIME_DIR/mpv.sock"
+readonly STATUS_FILE="$RUNTIME_DIR/status.json"
+readonly META_FILE="$RUNTIME_DIR/episode.json"
+readonly PID_FILE="$RUNTIME_DIR/mpv.pid"
+readonly LOG_FILE="$RUNTIME_DIR/mpv.log"
+readonly PROGRESS_FILE="$STATE_DIR/progress.json"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 mkdir -p "$RUNTIME_DIR" "$STATE_DIR"
 
@@ -53,71 +54,93 @@ ipc() {
 }
 
 stop_player() {
-  local pid
+  local pid i
   pid=$(player_pid) || { rm -f "$PID_FILE" "$SOCKET"; return 0; }
-  ipc '{"command":["quit"]}' || kill "$pid" 2>/dev/null
-  for _ in $(seq 1 100); do
+  ipc '{"command":["quit"]}' || kill "$pid" 2>/dev/null || true
+  for ((i = 0; i < 100; i++)); do
     kill -0 "$pid" 2>/dev/null || break
     sleep 0.02
   done
-  kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -KILL "$pid" 2>/dev/null || true
+  fi
   rm -f "$PID_FILE" "$SOCKET"
 }
 
-case ${1:-} in
-  play)
-    meta=${2:-}
-    jq -e '(.url | type == "string") and (.url | test("^https?://"; "i")) and (.url | test("[\\r\\n]") | not)' \
-      <<<"$meta" >/dev/null 2>&1 || { echo "Not a playable episode" >&2; exit 2; }
+cmd_play() {
+  local meta=${1:-}
+  if ! jq -e '
+    (.url | type == "string") and
+    (.url | test("^https?://"; "i")) and
+    (.url | test("[\\r\\n]") | not)
+  ' <<<"$meta" >/dev/null 2>&1; then
+    echo "Not a playable episode" >&2
+    return 2
+  fi
 
-    stop_player
+  stop_player
 
-    start=$(jq -r '(.start // 0) | tonumber? // 0 | floor | if . < 0 then 0 else . end' <<<"$meta")
-    title=$(jq -r '(.title // "Podcast") | gsub("[\\r\\n]"; " ")' <<<"$meta")
-    url=$(jq -r '.url' <<<"$meta")
-    tmp=$(mktemp "$RUNTIME_DIR/episode.XXXXXX")
-    jq -c '{id: (.id // "" | tostring), feedId: (.feedId // "" | tostring), title: (.title // ""),
-            show: (.show // ""), image: (.image // ""), url: .url}' <<<"$meta" >"$tmp"
-    mv "$tmp" "$META_FILE"
+  local start title url tmp
+  start=$(jq -r '(.start // 0) | tonumber? // 0 | floor | if . < 0 then 0 else . end' <<<"$meta")
+  title=$(jq -r '(.title // "Podcast") | gsub("[\\r\\n]"; " ")' <<<"$meta")
+  url=$(jq -r '.url' <<<"$meta")
 
-    PODMARCHY_STATUS_FILE="$STATUS_FILE" \
-    PODMARCHY_META_FILE="$META_FILE" \
-    PODMARCHY_PROGRESS_FILE="$PROGRESS_FILE" \
-      setsid mpv --no-video --no-terminal --idle=no --really-quiet \
-        --input-ipc-server="$SOCKET" \
-        --force-media-title="$title" \
-        --start="$start" \
-        --cache=yes --demuxer-max-bytes=64MiB \
-        --script="$script_dir/podmarchy-status.lua" \
-        -- "$url" >"$LOG_FILE" 2>&1 </dev/null &
-    printf '%s\n' "$!" >"$PID_FILE"
-    disown
-    ;;
+  tmp=$(mktemp "$RUNTIME_DIR/episode.XXXXXX")
+  jq -c '{
+    id: (.id // "" | tostring),
+    feedId: (.feedId // "" | tostring),
+    title: (.title // ""),
+    show: (.show // ""),
+    image: (.image // ""),
+    url: .url
+  }' <<<"$meta" >"$tmp"
+  mv "$tmp" "$META_FILE"
 
-  toggle)
-    ipc '{"command":["cycle","pause"]}'
-    ;;
+  PODMARCHY_STATUS_FILE="$STATUS_FILE" \
+  PODMARCHY_META_FILE="$META_FILE" \
+  PODMARCHY_PROGRESS_FILE="$PROGRESS_FILE" \
+    setsid mpv --no-video --no-terminal --idle=no --really-quiet \
+      --input-ipc-server="$SOCKET" \
+      --force-media-title="$title" \
+      --start="$start" \
+      --cache=yes --demuxer-max-bytes=64MiB \
+      --script="$SCRIPT_DIR/podmarchy-status.lua" \
+      -- "$url" >"$LOG_FILE" 2>&1 </dev/null &
+  printf '%s\n' "$!" >"$PID_FILE"
+  disown
+}
 
-  seek)
-    [[ ${2:-} =~ ^-?[0-9]+$ ]] || exit 2
-    ipc "{\"command\":[\"seek\",$2,\"relative\"]}"
-    ;;
+cmd_toggle() {
+  ipc '{"command":["cycle","pause"]}'
+}
 
-  stop)
-    stop_player
+cmd_seek() {
+  local delta=${1:-}
+  [[ $delta =~ ^-?[0-9]+$ ]] || return 2
+  ipc "{\"command\":[\"seek\",$delta,\"relative\"]}"
+}
+
+cmd_stop() {
+  stop_player
+  idle_status
+}
+
+cmd_status() {
+  if player_pid >/dev/null && [[ -s $STATUS_FILE ]]; then
+    cat "$STATUS_FILE"
+  else
+    rm -f "$PID_FILE" "$SOCKET"
     idle_status
-    ;;
+    cat "$STATUS_FILE"
+  fi
+}
 
-  status)
-    if player_pid >/dev/null && [[ -s $STATUS_FILE ]]; then
-      cat "$STATUS_FILE"
-    else
-      rm -f "$PID_FILE" "$SOCKET"
-      idle_status
-      cat "$STATUS_FILE"
-    fi
-    ;;
-
+case ${1:-} in
+  play)    cmd_play "${2:-}" ;;
+  toggle)  cmd_toggle ;;
+  seek)    cmd_seek "${2:-}" ;;
+  stop)    cmd_stop ;;
+  status)  cmd_status ;;
   *)
     echo "usage: podmarchy-player play|toggle|seek|stop|status" >&2
     exit 2

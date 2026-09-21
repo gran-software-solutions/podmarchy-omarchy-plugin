@@ -1,3 +1,10 @@
 # Local design scratch: mockups, screenshots, comparison notes.
 design-review/
+
+# Node artifacts
 node_modules/
+package-lock.json
+
+# Test/runtime leftovers
+*.tmp
+*.log

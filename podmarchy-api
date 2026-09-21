@@ -11,23 +11,34 @@
 #   trending [lang]     trending shows, optionally for one language
 #   episodes <feedId>   newest episodes of one show
 
-set -o pipefail
+set -euo pipefail
+shopt -s inherit_errexit 2>/dev/null || true
 umask 077
 
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/podmarchy"
-CRED_FILE="$STATE_DIR/credentials.json"
-API="${PODMARCHY_API_BASE:-https://api.podcastindex.org/api/1.0}"
-script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-version=$(jq -r '.version // "0"' "$script_dir/manifest.json" 2>/dev/null)
-USER_AGENT="Podmarchy/$version (+https://github.com/gran-software-solutions/podmarchy-omarchy-plugin)"
-MAX_RESPONSE_BYTES=$((8 * 1024 * 1024))
+readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/podmarchy"
+readonly CRED_FILE="$STATE_DIR/credentials.json"
+readonly API="${PODMARCHY_API_BASE:-https://api.podcastindex.org/api/1.0}"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly VERSION="$(jq -r '.version // "0"' "$SCRIPT_DIR/manifest.json" 2>/dev/null || echo "0")"
+readonly USER_AGENT="Podmarchy/$VERSION (+https://github.com/gran-software-solutions/podmarchy-omarchy-plugin)"
+readonly MAX_RESPONSE_BYTES=$((8 * 1024 * 1024))
+readonly MAX_REDIRS=3
 
 mkdir -p "$STATE_DIR"
 
+# Print an error JSON document and exit non-zero.
 fail() {
   jq -cn --arg e "$1" '{error: $e}'
   exit 1
 }
+
+# Ensure a temporary file is removed on exit.
+cleanup() {
+  local code=$?
+  [[ -n ${tmp_file:-} ]] && rm -f "$tmp_file"
+  exit "$code"
+}
+trap cleanup EXIT
 
 # Podcast Index descriptions are HTML. The panel renders plain text, so tags go,
 # block breaks become paragraph breaks and the common entities are decoded.
@@ -38,7 +49,7 @@ readonly PLAIN='def plain(limit):
   | gsub("&nbsp;"; " ") | gsub("&quot;"; "\"") | gsub("&#0?39;|&apos;|&rsquo;|&lsquo;"; "'\''")
   | gsub("&ldquo;|&rdquo;"; "\"") | gsub("&hellip;"; "…") | gsub("&mdash;"; "—") | gsub("&ndash;"; "–")
   | gsub("&lt;"; "<") | gsub("&gt;"; ">") | gsub("&amp;"; "&")
-  | gsub("[ \t\r]+"; " ") | gsub(" *\n *"; "\n") | gsub("\n{3,}"; "\n\n")
+  | gsub("[ \\t\r]+"; " ") | gsub(" *\n *"; "\n") | gsub("\n{3,}"; "\n\n")
   | ltrimstr(" ") | ltrimstr("\n") | rtrimstr("\n") | .[0:limit];
 def line(limit): plain(limit) | gsub("\n+"; " ");'
 
@@ -73,9 +84,11 @@ readonly EPISODE='def episode: {
 
 load_credentials() {
   [[ -s $CRED_FILE ]] || fail "No Podcast Index key yet. Add one in settings (Ctrl+,)."
+  local api_key api_secret
   api_key=$(jq -r '.key // empty' "$CRED_FILE")
   api_secret=$(jq -r '.secret // empty' "$CRED_FILE")
   [[ -n $api_key && -n $api_secret ]] || fail "The stored Podcast Index key is incomplete. Add it again in settings."
+  printf '%s\t%s' "$api_key" "$api_secret"
 }
 
 # GET an API path. Extra arguments are curl --data-urlencode pairs. The key and
@@ -83,9 +96,12 @@ load_credentials() {
 call() {
   local path=$1
   shift
-  load_credentials
 
-  local now hash headers body code
+  local creds api_key api_secret now hash headers body code
+  creds=$(load_credentials)
+  api_key=${creds%%$'\t'*}
+  api_secret=${creds#*$'\t'}
+
   now=$(date +%s)
   hash=$(printf '%s%s%s' "$api_key" "$api_secret" "$now" | sha1sum | cut -d' ' -f1)
   headers=$(printf 'User-Agent: %s\nX-Auth-Key: %s\nX-Auth-Date: %s\nAuthorization: %s\n' \
@@ -94,9 +110,13 @@ call() {
   local args=()
   for pair in "$@"; do args+=(--data-urlencode "$pair"); done
 
-  body=$(curl -sS --get --max-time 20 --max-filesize "$MAX_RESPONSE_BYTES" \
+  if ! body=$(curl -sS --get --location --max-redirs "$MAX_REDIRS" \
+    --max-time 20 --max-filesize "$MAX_RESPONSE_BYTES" \
     -H @<(printf '%s' "$headers") "${args[@]}" \
-    -w '\n%{http_code}' "$API$path" 2>&1) || fail "Could not reach Podcast Index: ${body##*$'\n'}"
+    -w '\n%{http_code}' "$API$path" 2>&1); then
+    code=${body##*$'\n'}
+    fail "Could not reach Podcast Index: ${code:-$body}"
+  fi
 
   code=${body##*$'\n'}
   body=${body%$'\n'*}
@@ -109,53 +129,66 @@ call() {
   esac
 }
 
+cmd_auth_set() {
+  local key secret tmp
+  IFS= read -r key || true
+  IFS= read -r secret || true
+  key=$(tr -d '[:space:]' <<<"$key")
+  secret=$(tr -d '[:space:]' <<<"$secret")
+  [[ $key =~ ^[A-Za-z0-9]{8,64}$ ]] || fail "That does not look like a Podcast Index API key."
+  [[ $secret =~ ^[[:graph:]]{8,128}$ ]] || fail "That does not look like a Podcast Index API secret."
+  tmp=$(mktemp "$STATE_DIR/credentials.XXXXXX")
+  jq -n --arg key "$key" --arg secret "$secret" '{key: $key, secret: $secret}' >"$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$CRED_FILE"
+  echo '{"ok":true}'
+}
+
+cmd_auth_clear() {
+  rm -f "$CRED_FILE"
+  echo '{"ok":true}'
+}
+
+cmd_auth_status() {
+  if [[ -s $CRED_FILE ]]; then echo '{"configured":true}'; else echo '{"configured":false}'; fi
+}
+
+cmd_search() {
+  local term json
+  term=${1:-}
+  [[ -n ${term// /} ]] || fail "Type something to search for."
+  [[ ${#term} -le 200 ]] || fail "Search term is too long."
+  json=$(call /search/byterm "q=$term" "max=40") || { printf '%s\n' "$json"; exit 1; }
+  jq -c "$PLAIN $FEED"'{feeds: [(.feeds // [])[] | feed]}' <<<"$json" || fail "Podcast Index sent a response Podmarchy could not read."
+}
+
+cmd_trending() {
+  local lang json
+  local params=("max=40")
+  lang=${1:-}
+  if [[ -n $lang ]]; then
+    [[ $lang =~ ^[A-Za-z,-]{2,40}$ ]] || fail "Not a valid language code: $lang"
+    params+=("lang=$lang")
+  fi
+  json=$(call /podcasts/trending "${params[@]}") || { printf '%s\n' "$json"; exit 1; }
+  jq -c "$PLAIN $FEED"'{feeds: [(.feeds // [])[] | feed]}' <<<"$json" || fail "Podcast Index sent a response Podmarchy could not read."
+}
+
+cmd_episodes() {
+  local feed json
+  feed=${1:-}
+  [[ $feed =~ ^[0-9]+$ ]] || fail "Not a feed id: $feed"
+  json=$(call /episodes/byfeedid "id=$feed" "max=100") || { printf '%s\n' "$json"; exit 1; }
+  jq -c --arg feedId "$feed" "$PLAIN $EPISODE"'{feedId: $feedId, items: [(.items // [])[] | episode | select(.url | test("^https?://"; "i"))]}' <<<"$json" \
+    || fail "Podcast Index sent a response Podmarchy could not read."
+}
+
 case ${1:-} in
-  auth-set)
-    IFS= read -r key || true
-    IFS= read -r secret || true
-    key=$(tr -d '[:space:]' <<<"$key")
-    secret=$(tr -d '[:space:]' <<<"$secret")
-    [[ $key =~ ^[A-Za-z0-9]{8,64}$ ]] || fail "That does not look like a Podcast Index API key."
-    [[ $secret =~ ^[[:graph:]]{8,128}$ ]] || fail "That does not look like a Podcast Index API secret."
-    tmp=$(mktemp "$STATE_DIR/credentials.XXXXXX")
-    jq -n --arg key "$key" --arg secret "$secret" '{key: $key, secret: $secret}' >"$tmp"
-    mv "$tmp" "$CRED_FILE"
-    echo '{"ok":true}'
-    ;;
-
-  auth-clear)
-    rm -f "$CRED_FILE"
-    echo '{"ok":true}'
-    ;;
-
-  auth-status)
-    if [[ -s $CRED_FILE ]]; then echo '{"configured":true}'; else echo '{"configured":false}'; fi
-    ;;
-
-  search)
-    term=${2:-}
-    [[ -n ${term// /} ]] || fail "Type something to search for."
-    json=$(call /search/byterm "q=$term" "max=40") || { printf '%s\n' "$json"; exit 1; }
-    jq -c "$PLAIN $FEED"'{feeds: [(.feeds // [])[] | feed]}' <<<"$json" || fail "Podcast Index sent a response Podmarchy could not read."
-    ;;
-
-  trending)
-    lang=${2:-}
-    params=("max=40")
-    [[ $lang =~ ^[A-Za-z,-]{2,40}$ ]] && params+=("lang=$lang")
-    json=$(call /podcasts/trending "${params[@]}") || { printf '%s\n' "$json"; exit 1; }
-    jq -c "$PLAIN $FEED"'{feeds: [(.feeds // [])[] | feed]}' <<<"$json" || fail "Podcast Index sent a response Podmarchy could not read."
-    ;;
-
-  episodes)
-    feed=${2:-}
-    [[ $feed =~ ^[0-9]+$ ]] || fail "Not a feed id: $feed"
-    json=$(call /episodes/byfeedid "id=$feed" "max=100") || { printf '%s\n' "$json"; exit 1; }
-    jq -c "$PLAIN $EPISODE"'{feedId: "'"$feed"'", items: [(.items // [])[] | episode | select(.url | test("^https?://"; "i"))]}' <<<"$json" \
-      || fail "Podcast Index sent a response Podmarchy could not read."
-    ;;
-
-  *)
-    fail "Unknown command: ${1:-}"
-    ;;
+  auth-set)    cmd_auth_set ;;
+  auth-clear)  cmd_auth_clear ;;
+  auth-status) cmd_auth_status ;;
+  search)      cmd_search "${2:-}" ;;
+  trending)    cmd_trending "${2:-}" ;;
+  episodes)    cmd_episodes "${2:-}" ;;
+  *)           fail "Unknown command: ${1:-}" ;;
 esac

@@ -5,6 +5,7 @@ import QtQuick
 import qs.Commons
 import qs.Ui
 import "PodmarchyModel.js" as Model
+import "components"
 
 Item {
   id: root
@@ -49,13 +50,20 @@ Item {
   property bool settingsError: false
 
   property string stateDir: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/podmarchy"
-  property string runtimeDir: Quickshell.env("XDG_RUNTIME_DIR") + "/podmarchy"
+  property string runtimeDir: {
+    var run = Quickshell.env("XDG_RUNTIME_DIR")
+    if (!run) {
+      console.warn("Podmarchy: XDG_RUNTIME_DIR is not set; playback may not work")
+      run = "/tmp"
+    }
+    return run + "/podmarchy"
+  }
   property string subscriptionsPath: stateDir + "/subscriptions.json"
   property string progressPath: stateDir + "/progress.json"
   property string settingsPath: stateDir + "/settings.json"
   property string statusPath: runtimeDir + "/status.json"
-  property string apiScript: Qt.resolvedUrl("podmarchy-api").toString().replace("file://", "")
-  property string playerScript: Qt.resolvedUrl("podmarchy-player").toString().replace("file://", "")
+  property string apiScript: Qt.resolvedUrl("podmarchy-api").toString().replace(/^file:\/\//, "")
+  property string playerScript: Qt.resolvedUrl("podmarchy-player").toString().replace(/^file:\/\//, "")
   property bool statusReady: false
 
   // ---- look: the same tokens and proportions as Yank ----
@@ -239,6 +247,11 @@ Item {
     return root.rows[root.selectedIndex]
   }
 
+  function isHttpUrl(value) {
+    var s = String(value || "")
+    return /^https?:\/\//i.test(s) && !/[\r\n]/.test(s)
+  }
+
   function ensureVisible(idx) {
     if (resultList.count > 0) resultList.positionViewAtIndex(idx, ListView.Contain)
   }
@@ -246,6 +259,8 @@ Item {
   function select(delta) {
     if (root.rows.length === 0) return
     root.lastKeyboardMove = Date.now()
+    root.hoverAllowed = false
+    hoverTimer.restart()
     var wasActive = root.cursorActive
     root.cursorActive = true
     var idx = !wasActive ? (delta < 0 ? root.rows.length - 1 : 0)
@@ -254,7 +269,7 @@ Item {
     root.ensureVisible(idx)
   }
 
-  readonly property bool hoverAllowed: Date.now() - lastKeyboardMove > 700
+  property bool hoverAllowed: true
 
   // ---- actions on rows ----
 
@@ -447,8 +462,8 @@ Item {
     if (row && row.rowType === "show") {
       add("open", "Show episodes", "Enter")
       add("subscribe", row.subscribed ? "Unsubscribe" : "Subscribe", "Ctrl+P")
-      if (row.link) add("website", "Open website", "")
-      if (row.url) add("copyfeed", "Copy feed URL", "")
+      if (root.isHttpUrl(row.link)) add("website", "Open website", "")
+      if (root.isHttpUrl(row.url)) add("copyfeed", "Copy feed URL", "")
     } else if (row) {
       var live = root.playing && String(root.nowEpisode.id) === String(row.id)
       add("play", live ? (root.status.paused ? "Resume" : "Pause")
@@ -456,8 +471,8 @@ Item {
       if (row.position > 0 || live) add("restart", "Play from the start", "Shift+Enter")
       add(row.done ? "unplayed" : "played", row.done ? "Mark as unplayed" : "Mark as played", "")
       if (root.openShow) add("subscribe", Model.isSubscribed(root.subscriptions, root.openShow.id) ? "Unsubscribe from show" : "Subscribe to show", "Ctrl+P")
-      if (row.link) add("website", "Open episode page", "")
-      add("copyaudio", "Copy audio URL", "")
+      if (root.isHttpUrl(row.link)) add("website", "Open episode page", "")
+      if (root.isHttpUrl(row.url)) add("copyaudio", "Copy audio URL", "")
     }
     if (root.playing) add("stop", "Stop playback", "Ctrl+S")
     if (root.subscriptions.length > 0) add("opml", "Export subscriptions as OPML", "")
@@ -476,9 +491,9 @@ Item {
     else if (id === "unplayed") root.markPlayed(row, false)
     else if (id === "stop") root.player(["stop"])
     else if (id === "opml") root.exportOpml()
-    else if (id === "website" && row && row.link) Quickshell.execDetached(["xdg-open", row.link])
-    else if (id === "copyfeed" && row) Quickshell.execDetached(["wl-copy", "--", row.url])
-    else if (id === "copyaudio" && row) Quickshell.execDetached(["wl-copy", "--", row.url])
+    else if (id === "website" && row && root.isHttpUrl(row.link)) Quickshell.execDetached(["xdg-open", row.link])
+    else if (id === "copyfeed" && row && root.isHttpUrl(row.url)) Quickshell.execDetached(["wl-copy", "--", row.url])
+    else if (id === "copyaudio" && row && root.isHttpUrl(row.url)) Quickshell.execDetached(["wl-copy", "--", row.url])
   }
 
   function runActionIndex(index) {
@@ -609,7 +624,8 @@ Item {
       payload = ""
       stdinEnabled = false
     }
-    onExited: function(exitCode) {
+    onExited: {
+      var exitCode = authSetProc.exitCode
       var reply = {}
       try { reply = JSON.parse(authSetProc.output || "{}") } catch (e) {}
       if (exitCode === 0) {
@@ -618,8 +634,6 @@ Item {
         root.settingsMessage = "Saved. Podmarchy is connected to Podcast Index."
         root.keyDraft = ""
         root.secretDraft = ""
-        keyField.text = ""
-        secretField.text = ""
         keyCatcher.forceActiveFocus()
         root.errorText = ""
         root.trending = []
@@ -660,152 +674,14 @@ Item {
     onTriggered: root.now = Date.now()
   }
 
+  Timer {
+    id: hoverTimer
+    interval: 700
+    repeat: false
+    onTriggered: root.hoverAllowed = true
+  }
+
   // ---- shared components ----
-
-  component KeyCap: Rectangle {
-    id: keyCap
-    property string label
-    property bool primary: false
-    width: keyCapLabel.implicitWidth + Style.space(9)
-    height: capHeight
-    radius: 5
-    color: keyCap.primary ? root.keycapAccentFill : root.keycapFill
-    border.color: keyCap.primary ? root.keycapAccentBorder : root.keycapBorder
-    border.width: 1
-
-    Text {
-      id: keyCapLabel
-      anchors.centerIn: parent
-      textFormat: Text.PlainText
-      text: keyCap.label
-      color: root.keycapText
-      font.family: root.fontFamily
-      font.pixelSize: root.metaFont
-      font.weight: keyCap.primary ? Font.DemiBold : Font.Normal
-    }
-  }
-
-  component ShortcutRow: Row {
-    id: shortcutRow
-    property var keys: []
-    property string label
-    spacing: Style.space(12)
-
-    Row {
-      width: Style.space(104)
-      height: root.referenceRowHeight
-      spacing: Style.space(3)
-
-      Repeater {
-        model: shortcutRow.keys
-        delegate: KeyCap { required property string modelData; label: modelData }
-      }
-    }
-
-    Text {
-      textFormat: Text.PlainText
-      text: shortcutRow.label
-      color: root.hintLabel
-      height: root.referenceRowHeight
-      verticalAlignment: Text.AlignVCenter
-      font.family: root.fontFamily
-      font.pixelSize: root.metaFont
-      anchors.verticalCenter: parent.verticalCenter
-    }
-  }
-
-  component ShortcutGroup: Column {
-    id: shortcutGroup
-    property string title
-    property var rows: []
-    spacing: Style.space(3)
-
-    Text {
-      textFormat: Text.PlainText
-      text: shortcutGroup.title
-      color: root.selectedText
-      font.family: root.fontFamily
-      font.pixelSize: root.metaFont
-      font.letterSpacing: 1.4
-      font.weight: Font.DemiBold
-      bottomPadding: Style.space(4)
-    }
-
-    Repeater {
-      model: shortcutGroup.rows
-      delegate: ShortcutRow {
-        required property var modelData
-        keys: modelData.keys
-        label: modelData.label
-      }
-    }
-  }
-
-  component SettingsLabel: Text {
-    textFormat: Text.PlainText
-    color: root.hintLabel
-    font.family: root.fontFamily
-    font.pixelSize: root.metaFont
-    font.letterSpacing: 1.0
-    font.weight: Font.DemiBold
-  }
-
-  // Keycap-styled text field, as in Yank's retention setting.
-  component SettingsField: Rectangle {
-    id: field
-    property alias input: fieldInput
-    property alias text: fieldInput.text
-    property string placeholder: ""
-    property bool secret: false
-    signal edited(string value)
-    signal submitted()
-    signal focusLost()
-    height: Style.space(26)
-    radius: Style.space(5)
-    color: root.keycapFill
-    border.width: fieldInput.activeFocus ? 2 : 1
-    border.color: fieldInput.activeFocus ? Util.alpha(root.selectedText, 0.6) : Util.alpha(root.foreground, 0.20)
-
-    TextInput {
-      id: fieldInput
-      anchors.fill: parent
-      anchors.leftMargin: Style.space(8)
-      anchors.rightMargin: Style.space(8)
-      verticalAlignment: TextInput.AlignVCenter
-      color: root.foreground
-      selectionColor: Util.alpha(root.selectedText, 0.35)
-      selectedTextColor: root.foreground
-      font.family: root.fontFamily
-      font.pixelSize: root.metaFont
-      echoMode: field.secret ? TextInput.Password : TextInput.Normal
-      activeFocusOnPress: true
-      clip: true
-      onTextEdited: field.edited(text)
-      onActiveFocusChanged: if (!activeFocus) field.focusLost()
-      Keys.onReturnPressed: field.submitted()
-      Keys.onEnterPressed: field.submitted()
-      Keys.onEscapePressed: { root.helpOpen = false; keyCatcher.forceActiveFocus() }
-    }
-
-    Text {
-      anchors.left: parent.left
-      anchors.leftMargin: Style.space(8)
-      anchors.verticalCenter: parent.verticalCenter
-      visible: fieldInput.text.length === 0
-      textFormat: Text.PlainText
-      text: field.placeholder
-      color: root.foreground
-      opacity: 0.35
-      font.family: root.fontFamily
-      font.pixelSize: root.metaFont
-    }
-
-    MouseArea {
-      anchors.fill: parent
-      cursorShape: Qt.IBeamCursor
-      onClicked: fieldInput.forceActiveFocus()
-    }
-  }
 
   PointerMoveGate {
     id: pointerGate
@@ -873,9 +749,7 @@ Item {
               root.rebuildActions()
             } else return
             event.accepted = true
-            Qt.callLater(function() {
-              if (actionsList.count > 0) actionsList.positionViewAtIndex(root.actionIndex, ListView.Contain)
-            })
+            Qt.callLater(function() { actionsOverlay.scrollTo(root.actionIndex) })
             return
           }
 
@@ -1256,6 +1130,7 @@ Item {
               clip: true
               spacing: Style.space(2)
               boundsBehavior: Flickable.StopAtBounds
+              reuseItems: true
 
               delegate: Rectangle {
                 id: listRow
@@ -1993,7 +1868,7 @@ Item {
                 Row {
                   id: hintRow
                   spacing: Style.space(6)
-                  KeyCap { label: hint.modelData.keys; primary: !!hint.modelData.primary; anchors.verticalCenter: parent.verticalCenter }
+                  PodmarchyKeyCap { label: hint.modelData.keys; primary: !!hint.modelData.primary; anchors.verticalCenter: parent.verticalCenter }
                   Text {
                     textFormat: Text.PlainText
                     text: hint.modelData.label
@@ -2056,446 +1931,15 @@ Item {
         }
       }
 
-      // ---- help popup: shortcuts and settings ----
-      Rectangle {
-        anchors.fill: parent
-        radius: root.cornerRadius
-        color: Util.alpha(root.foreground, 0.28)
-        visible: opacity > 0.01
-        opacity: root.helpOpen ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-
-        MouseArea { anchors.fill: parent; onClicked: { root.helpOpen = false; keyCatcher.forceActiveFocus() } }
+      PodmarchyHelpPopup {
+        root: root
+        keyCatcher: keyCatcher
       }
 
-      BorderSurface {
-        id: helpCard
-        anchors.centerIn: parent
-        width: Math.min(root.helpPopupWidth, card.width - Style.space(60))
-        height: Math.min(root.helpPopupHeight, card.height - Style.space(60))
-        radius: root.cornerRadius
-        color: Util.alpha(root.background, 1)
-        borderSpec: root.borderSpec
-        padding: root.contentMargin
-        visible: opacity > 0.01
-        opacity: root.helpOpen ? 1 : 0
-        scale: root.helpOpen ? 1 : 0.99
-        Behavior on opacity { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-        Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutCubic } }
-
-        MouseArea { anchors.fill: parent; onClicked: {} }
-
-        Column {
-          anchors.fill: parent
-          anchors.topMargin: parent.contentTopInset + Style.space(4)
-          anchors.rightMargin: parent.contentRightInset + Style.space(2)
-          anchors.bottomMargin: parent.contentBottomInset
-          anchors.leftMargin: parent.contentLeftInset + Style.space(2)
-          spacing: root.contentSpacing
-
-          // Page switcher. Explicit items rather than a Repeater: repeated
-          // delegates in this popup did not render in Yank.
-          Row {
-            spacing: Style.space(4)
-
-            Item {
-              id: tabShortcuts
-              width: tabShortcutsLabel.implicitWidth + Style.space(18)
-              height: Style.space(24)
-              readonly property bool active: root.helpTab === "shortcuts"
-
-              Rectangle {
-                anchors.fill: parent
-                radius: Style.space(5)
-                color: tabShortcuts.active ? Util.alpha(root.selectedText, 0.16)
-                                           : (tabShortcutsArea.containsMouse ? Util.alpha(root.foreground, 0.06) : "transparent")
-                border.width: 1
-                border.color: tabShortcuts.active ? Util.alpha(root.selectedText, 0.45) : Util.alpha(root.foreground, 0.16)
-              }
-
-              Text {
-                id: tabShortcutsLabel
-                anchors.centerIn: parent
-                textFormat: Text.PlainText
-                text: "SHORTCUTS"
-                color: tabShortcuts.active ? root.selectedText : root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: root.metaFont
-                font.letterSpacing: 1.0
-                font.weight: tabShortcuts.active ? Font.DemiBold : Font.Normal
-              }
-
-              MouseArea {
-                id: tabShortcutsArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: { root.helpTab = "shortcuts"; keyCatcher.forceActiveFocus() }
-              }
-
-              PanelToolTip { visible: tabShortcutsArea.containsMouse; text: "All keyboard shortcuts" }
-            }
-
-            Item {
-              id: tabSettings
-              width: tabSettingsLabel.implicitWidth + Style.space(18)
-              height: Style.space(24)
-              readonly property bool active: root.helpTab === "settings"
-
-              Rectangle {
-                anchors.fill: parent
-                radius: Style.space(5)
-                color: tabSettings.active ? Util.alpha(root.selectedText, 0.16)
-                                          : (tabSettingsArea.containsMouse ? Util.alpha(root.foreground, 0.06) : "transparent")
-                border.width: 1
-                border.color: tabSettings.active ? Util.alpha(root.selectedText, 0.45) : Util.alpha(root.foreground, 0.16)
-              }
-
-              Text {
-                id: tabSettingsLabel
-                anchors.centerIn: parent
-                textFormat: Text.PlainText
-                text: "SETTINGS"
-                color: tabSettings.active ? root.selectedText : root.foreground
-                font.family: root.fontFamily
-                font.pixelSize: root.metaFont
-                font.letterSpacing: 1.0
-                font.weight: tabSettings.active ? Font.DemiBold : Font.Normal
-              }
-
-              MouseArea {
-                id: tabSettingsArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.helpTab = "settings"
-              }
-
-              PanelToolTip { visible: tabSettingsArea.containsMouse; text: "Podcast Index key and trending language" }
-            }
-          }
-
-          // ---- page: settings ----
-          Column {
-            visible: root.helpTab === "settings"
-            width: parent.width
-            spacing: Style.space(8)
-
-            // The panel owns the keyboard, so a field claims focus explicitly
-            // when the page opens: the key field until one is saved.
-            onVisibleChanged: if (visible && root.helpOpen) Qt.callLater(function() {
-              if (!root.apiConfigured) keyField.input.forceActiveFocus()
-            })
-
-            Row {
-              spacing: Style.space(8)
-
-              SettingsLabel { text: "PODCAST INDEX"; anchors.verticalCenter: parent.verticalCenter }
-
-              Text {
-                textFormat: Text.PlainText
-                text: root.apiConfigured ? "\u{F012C} connected" : "not connected"
-                color: root.apiConfigured ? Color.accent : root.hintLabel
-                font.family: root.fontFamily
-                font.pixelSize: root.metaFont
-                anchors.verticalCenter: parent.verticalCenter
-              }
-            }
-
-            Row {
-              spacing: Style.space(7)
-
-              SettingsField {
-                id: keyField
-                width: Style.space(220)
-                placeholder: root.apiConfigured ? "New API key" : "API key"
-                text: root.keyDraft
-                onEdited: function(value) { root.keyDraft = value }
-                onSubmitted: secretField.input.forceActiveFocus()
-              }
-
-              SettingsField {
-                id: secretField
-                width: Style.space(300)
-                placeholder: "API secret"
-                secret: true
-                text: root.secretDraft
-                onEdited: function(value) { root.secretDraft = value }
-                onSubmitted: root.saveCredentials()
-              }
-
-              Rectangle {
-                width: saveLabel.implicitWidth + Style.space(18)
-                height: Style.space(26)
-                radius: Style.space(5)
-                readonly property bool ready: root.keyDraft.trim() !== "" && root.secretDraft.trim() !== ""
-                color: ready ? root.keycapAccentFill : root.keycapFill
-                border.width: 1
-                border.color: ready ? root.keycapAccentBorder : root.keycapBorder
-                opacity: ready ? 1 : 0.6
-
-                Text {
-                  id: saveLabel
-                  anchors.centerIn: parent
-                  textFormat: Text.PlainText
-                  text: authSetProc.running ? "Saving…" : "Save"
-                  color: root.keycapText
-                  font.family: root.fontFamily
-                  font.pixelSize: root.metaFont
-                  font.weight: Font.DemiBold
-                }
-
-                MouseArea {
-                  id: saveArea
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: if (parent.ready) root.saveCredentials()
-                }
-
-                PanelToolTip {
-                  visible: saveArea.containsMouse
-                  text: parent.ready ? "Save the key and secret on this computer" : "Paste both the key and the secret first"
-                }
-              }
-            }
-
-            Row {
-              spacing: Style.space(4)
-
-              Text {
-                textFormat: Text.PlainText
-                text: root.settingsMessage || "Free key, no card: sign up at"
-                color: root.settingsError ? "#d04860" : root.hintLabel
-                font.family: root.fontFamily
-                font.pixelSize: root.metaFont
-              }
-
-              Text {
-                visible: !root.settingsMessage
-                textFormat: Text.PlainText
-                text: "api.podcastindex.org"
-                color: Color.accent
-                font.family: root.fontFamily
-                font.pixelSize: root.metaFont
-                font.underline: signupArea.containsMouse
-
-                MouseArea {
-                  id: signupArea
-                  anchors.fill: parent
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: Quickshell.execDetached(["xdg-open", "https://api.podcastindex.org/signup"])
-                }
-
-                PanelToolTip { visible: signupArea.containsMouse; text: "Open the Podcast Index sign-up page in your browser" }
-              }
-
-              Text {
-                visible: !root.settingsMessage
-                textFormat: Text.PlainText
-                text: "· stored only on this machine"
-                color: root.hintLabel
-                font.family: root.fontFamily
-                font.pixelSize: root.metaFont
-              }
-            }
-
-            Item { width: 1; height: Style.space(4) }
-
-            SettingsLabel { text: "TRENDING LANGUAGE" }
-
-            Row {
-              spacing: Style.space(7)
-
-              SettingsField {
-                id: languageField
-                width: Style.space(90)
-                placeholder: "any"
-                text: root.language
-                onSubmitted: root.saveLanguage(text)
-                onFocusLost: root.saveLanguage(text)
-              }
-
-              Text {
-                textFormat: Text.PlainText
-                text: "Language code such as en or de, several with commas. Empty shows every language."
-                color: root.hintLabel
-                font.family: root.fontFamily
-                font.pixelSize: root.metaFont
-                anchors.verticalCenter: parent.verticalCenter
-              }
-            }
-          }
-
-          // ---- page: shortcuts ----
-          Row {
-            visible: root.helpTab === "shortcuts"
-            spacing: Style.space(20)
-
-            ShortcutGroup {
-              title: "NAVIGATE"
-              rows: [
-                { keys: ["Ctrl+J", "Ctrl+K"], label: "move" },
-                { keys: ["Tab", "Shift+Tab"], label: "switch view" },
-                { keys: ["Ctrl+1–3"], label: "pick a view" },
-                { keys: ["Esc"], label: "back, then close" }
-              ]
-            }
-
-            ShortcutGroup {
-              title: "LISTEN"
-              rows: [
-                { keys: ["Enter"], label: "open show / play" },
-                { keys: ["Shift+Enter"], label: "play from start" },
-                { keys: ["Ctrl+Space"], label: "pause / resume" },
-                { keys: ["Ctrl+←", "Ctrl+→"], label: "back 15 s / ahead 30 s" }
-              ]
-            }
-
-            ShortcutGroup {
-              title: "LIBRARY"
-              rows: [
-                { keys: ["Ctrl+P"], label: "subscribe / unsubscribe" },
-                { keys: ["Delete", "Ctrl+D"], label: "remove from view" },
-                { keys: ["Ctrl+S"], label: "stop playback" },
-                { keys: ["Backspace"], label: "leave a show" }
-              ]
-            }
-
-            ShortcutGroup {
-              title: "PANEL"
-              rows: [
-                { keys: ["?"], label: "this reference" },
-                { keys: ["Ctrl+,"], label: "settings" },
-                { keys: ["Ctrl+O"], label: "detail pane" },
-                { keys: ["Ctrl+."], label: "actions menu" }
-              ]
-            }
-          }
-        }
-      }
-
-      // ---- actions overlay ----
-      Rectangle {
-        anchors.fill: parent
-        visible: root.actionsOpen
-        radius: root.cornerRadius
-        color: Util.alpha(root.background, 0.35)
-      }
-
-      BorderSurface {
-        visible: root.actionsOpen
-        anchors.centerIn: parent
-        width: Math.min(Style.space(560), card.width - Style.space(40))
-        height: Math.min(Style.space(520), card.height - Style.space(40))
-        radius: root.cornerRadius
-        color: root.background
-        borderSpec: root.borderSpec
-        padding: root.contentMargin
-
-        MouseArea { anchors.fill: parent; onClicked: {} }
-
-        Column {
-          anchors.fill: parent
-          anchors.topMargin: parent.contentTopInset
-          anchors.rightMargin: parent.contentRightInset
-          anchors.bottomMargin: parent.contentBottomInset
-          anchors.leftMargin: parent.contentLeftInset
-          spacing: root.contentSpacing
-
-          Text {
-            id: actionsHeading
-            textFormat: Text.PlainText
-            text: "Actions"
-            color: root.foreground
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.heading
-          }
-
-          Rectangle {
-            id: actionSearchBox
-            width: parent.width
-            height: Style.space(42)
-            radius: root.cornerRadius
-            color: Util.alpha(root.border, 0.08)
-
-            Text {
-              textFormat: Text.PlainText
-              anchors.left: parent.left
-              anchors.leftMargin: Style.space(12)
-              anchors.verticalCenter: parent.verticalCenter
-              text: root.actionFilter || "Search actions…"
-              color: root.foreground
-              opacity: root.actionFilter ? 1 : 0.5
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.title
-            }
-          }
-
-          ListView {
-            id: actionsList
-            width: parent.width
-            height: parent.height - actionsHeading.height - actionSearchBox.height - root.contentSpacing * 2
-            model: actionsModel
-            clip: true
-            spacing: Style.space(4)
-            boundsBehavior: Flickable.StopAtBounds
-
-            delegate: Rectangle {
-              id: actionRow
-              required property int index
-              required property string actionId
-              required property string label
-              required property string hint
-
-              readonly property bool hasCursor: index === root.actionIndex
-
-              width: ListView.view.width
-              height: Style.space(46)
-              radius: root.cornerRadius
-              color: hasCursor ? root.selectedBackground : "transparent"
-
-              Text {
-                anchors.left: parent.left
-                anchors.leftMargin: Style.space(22)
-                anchors.right: actionHint.left
-                anchors.rightMargin: Style.space(10)
-                anchors.verticalCenter: parent.verticalCenter
-                textFormat: Text.PlainText
-                text: actionRow.label
-                color: actionRow.hasCursor ? root.selectedText : (actionRow.actionId === "stop" ? "#d04860" : root.foreground)
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.title
-                elide: Text.ElideRight
-              }
-
-              Text {
-                id: actionHint
-                anchors.right: parent.right
-                anchors.rightMargin: Style.space(12)
-                anchors.verticalCenter: parent.verticalCenter
-                textFormat: Text.PlainText
-                text: actionRow.hint
-                color: actionRow.hasCursor ? root.selectedText : root.foreground
-                opacity: 0.5
-                font.family: root.fontFamily
-                font.pixelSize: Style.font.caption
-              }
-
-              MouseArea {
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onPositionChanged: function(mouse) {
-                  if (!pointerGate.moved(actionRow, mouse)) return
-                  root.actionIndex = actionRow.index
-                }
-                onClicked: root.runActionIndex(actionRow.index)
-              }
-            }
-          }
-        }
+      PodmarchyActionsOverlay {
+        id: actionsOverlay
+        root: root
+        pointerGate: pointerGate
       }
     }
   }

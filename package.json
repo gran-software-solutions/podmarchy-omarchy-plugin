@@ -1,0 +1,15 @@
+{
+  "name": "podmarchy-omarchy-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Podcast player plugin for the Omarchy shell",
+  "scripts": {
+    "test": "node --test tests/",
+    "test:api": "bash tests/api.test.bash",
+    "lint:bash": "bash -n podmarchy-api podmarchy-player",
+    "lint:lua": "luac -p podmarchy-status.lua"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

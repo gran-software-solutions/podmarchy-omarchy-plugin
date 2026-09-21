@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
+import "PodmarchyModel.js" as Model
 
 // Podmarchy in the bar: lights up while an episode plays. Click opens the
 // panel, right-click pauses or resumes, scrolling seeks.
@@ -19,14 +20,9 @@ BarWidget {
   property string show: ""
   property bool statusReady: false
   readonly property string playerPath: Qt.resolvedUrl("podmarchy-player").toString().replace(/^file:\/\//, "")
-  readonly property string statusPath: Quickshell.env("XDG_RUNTIME_DIR") + "/podmarchy/status.json"
-
-  function clock(seconds) {
-    var s = Math.max(0, Math.floor(seconds || 0))
-    var h = Math.floor(s / 3600)
-    var m = Math.floor((s % 3600) / 60)
-    var sec = s % 60
-    return (h > 0 ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (sec < 10 ? "0" : "") + sec
+  readonly property string statusPath: {
+    var run = Quickshell.env("XDG_RUNTIME_DIR")
+    return (run || "/tmp") + "/podmarchy/status.json"
   }
 
   function oneLine(value, limit) {
@@ -57,6 +53,7 @@ BarWidget {
   FileView {
     path: root.statusReady ? root.statusPath : ""
     watchChanges: true
+    atomicWrites: true
     printErrors: false
     onLoaded: root.applyStatus(text())
     onFileChanged: reload()
@@ -80,7 +77,7 @@ BarWidget {
     tooltipText: root.running
       ? (root.paused ? "Paused: " : "Playing: ") + root.title
         + (root.show ? " — " + root.show : "")
-        + "  ·  " + root.clock(root.position) + (root.duration > 0 ? " / " + root.clock(root.duration) : "")
+        + "  ·  " + Model.clock(root.position) + (root.duration > 0 ? " / " + Model.clock(root.duration) : "")
       : "Open Podmarchy"
 
     onPressed: function(mouseButton) {

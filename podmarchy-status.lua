@@ -11,24 +11,26 @@ local progress_path = os.getenv("PODMARCHY_PROGRESS_FILE")
 
 -- Within this many seconds of the end an episode counts as played.
 local DONE_MARGIN = 30
+-- Save progress to disk every this many seconds while playing.
 local SAVE_EVERY = 10
 
 local function read_json(path)
-  if not path then return nil end
-  local file = io.open(path, "r")
+  if not path or path == "" then return nil end
+  local file, err = io.open(path, "r")
   if not file then return nil end
   local text = file:read("*a")
   file:close()
   if not text or text == "" then return nil end
-  return utils.parse_json(text)
+  local ok, value = pcall(utils.parse_json, text)
+  return ok and value or nil
 end
 
 local function write_json(path, value)
-  if not path then return end
-  local text = utils.format_json(value)
-  if not text then return end
+  if not path or path == "" then return end
+  local ok, text = pcall(utils.format_json, value)
+  if not ok or not text then return end
   local tmp = path .. ".tmp"
-  local file = io.open(tmp, "w")
+  local file, err = io.open(tmp, "w")
   if not file then return end
   file:write(text, "\n")
   file:close()
