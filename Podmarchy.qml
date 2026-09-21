@@ -50,6 +50,7 @@ Item {
   property string savedSecretMask: ""
   property string settingsMessage: ""
   property bool settingsError: false
+  readonly property bool savingCredentials: authSetProc.running
 
   property string stateDir: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/podmarchy"
   property string runtimeDir: {
@@ -931,6 +932,7 @@ Item {
             Keys.priority: Keys.BeforeItem
             Keys.onPressed: function(event) {
               var ctrl = event.modifiers & Qt.ControlModifier
+              var shift = event.modifiers & Qt.ShiftModifier
               if (event.key === Qt.Key_Escape) {
                 root.blurSearch()
                 event.accepted = true
