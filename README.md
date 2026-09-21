@@ -8,6 +8,10 @@ pick up where you stopped — without leaving the keyboard.
 
 `de.gransoftware.podmarchy`&nbsp;&nbsp;·&nbsp;&nbsp;![version](https://img.shields.io/badge/version-0.1.0-2f6f4e?style=flat-square)&nbsp;![shell](https://img.shields.io/badge/Omarchy-shell%20plugin-3b4252?style=flat-square)&nbsp;![qml](https://img.shields.io/badge/built%20with-Quickshell%20%2F%20QML-41cd52?style=flat-square)&nbsp;![mpv](https://img.shields.io/badge/plays%20with-mpv-690b6b?style=flat-square)
 
+<br>
+
+<img src="preview.png" alt="Podmarchy playing an episode, with the show's episode list and details" width="800">
+
 <sub>Podmarchy follows the active Omarchy theme.</sub>
 
 </div>
@@ -43,21 +47,37 @@ index to search, a list of shows you follow, and mpv doing the playing.
 - **Detail pane** with the cover, show notes and a live progress bar.
 - **OPML export** of your subscriptions, for any other podcast app.
 
-## <img src="icons/keyboard.png" width="20" alt=""> Keys
-
-`?` shows the same list inside the app.
+## <img src="icons/eye.png" width="20" alt=""> Screenshots
 
 <table>
-  <tr><td width="28"><img src="icons/arrows-vertical.png" width="18" alt=""></td><td><code>Ctrl+J</code> <code>Ctrl+K</code> · arrows</td><td>Move through the list</td></tr>
-  <tr><td width="28"><img src="icons/funnel.png" width="18" alt=""></td><td><code>Tab</code> · <code>Ctrl+H</code> <code>Ctrl+L</code> · <code>Ctrl+1–3</code></td><td>Library, Discover, Continue</td></tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/search.png" alt="Discover: searching Podcast Index for kubernetes"><br><sub><b>Discover</b> — search the whole Podcast Index, or browse trending shows.</sub></td>
+    <td width="50%"><img src="docs/screenshots/library.png" alt="Library: the shows you subscribe to"><br><sub><b>Library</b> — the shows you follow, kept on your machine.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/continue.png" alt="Continue: episodes in progress"><br><sub><b>Continue</b> — every episode you started, ready to resume.</sub></td>
+    <td width="50%"><img src="docs/screenshots/settings.png" alt="Settings: Podcast Index key and secret"><br><sub><b>Settings</b> — paste your Podcast Index key and secret (<code>Ctrl+,</code>).</sub></td>
+  </tr>
+</table>
+
+## <img src="icons/keyboard.png" width="20" alt=""> Keys
+
+`?` shows the same list inside the app:
+
+<img src="docs/screenshots/shortcuts.png" alt="The keyboard shortcuts reference inside Podmarchy" width="640">
+
+<table>
+  <tr><td width="28"><img src="icons/arrows-vertical.png" width="18" alt=""></td><td><code>↑</code> <code>↓</code> · <code>Ctrl+K</code> <code>Ctrl+J</code></td><td>Move through the list</td></tr>
+  <tr><td width="28"><img src="icons/funnel.png" width="18" alt=""></td><td><code>Tab</code> <code>Shift+Tab</code> · <code>Ctrl+L</code> <code>Ctrl+H</code> · <code>1</code> <code>2</code> <code>3</code></td><td>Next / previous view · Library, Discover, Continue</td></tr>
   <tr><td width="28"><img src="icons/arrow-elbow-down-left.png" width="18" alt=""></td><td><code>Enter</code></td><td>Open a show · play or pause an episode</td></tr>
   <tr><td width="28"><img src="icons/copy.png" width="18" alt=""></td><td><code>Shift+Enter</code></td><td>Play from the start</td></tr>
-  <tr><td width="28"><img src="icons/push-pin.png" width="18" alt=""></td><td><code>Ctrl+P</code></td><td>Subscribe / unsubscribe</td></tr>
-  <tr><td width="28"><img src="icons/flow-arrow.png" width="18" alt=""></td><td><code>Ctrl+Space</code> · <code>Ctrl+←</code> <code>Ctrl+→</code> · <code>Ctrl+S</code></td><td>Pause · back 15 s / ahead 30 s · stop</td></tr>
-  <tr><td width="28"><img src="icons/eye.png" width="18" alt=""></td><td><code>Ctrl+O</code></td><td>Show or hide the detail pane</td></tr>
-  <tr><td width="28"><img src="icons/dots-three.png" width="18" alt=""></td><td><code>Ctrl+.</code></td><td>Actions menu</td></tr>
-  <tr><td width="28"><img src="icons/trash.png" width="18" alt=""></td><td><code>Delete</code> <code>Ctrl+D</code></td><td>Unsubscribe (Library) · forget progress (Continue)</td></tr>
-  <tr><td width="28"><img src="icons/gear.png" width="18" alt=""></td><td><code>Ctrl+,</code></td><td>Settings</td></tr>
+  <tr><td width="28"><img src="icons/flow-arrow.png" width="18" alt=""></td><td><code>Space</code> <code>k</code> · <code>j</code> <code>l</code> · <code>←</code> <code>→</code> · <code>q</code></td><td>Play / pause · back 10 s / ahead 30 s · back 15 s / ahead 30 s · stop</td></tr>
+  <tr><td width="28"><img src="icons/push-pin.png" width="18" alt=""></td><td><code>s</code></td><td>Subscribe / unsubscribe</td></tr>
+  <tr><td width="28"><img src="icons/trash.png" width="18" alt=""></td><td><code>d</code> <code>Delete</code></td><td>Unsubscribe (Library) · forget progress (Continue)</td></tr>
+  <tr><td width="28"><img src="icons/funnel.png" width="18" alt=""></td><td><code>/</code></td><td>Search</td></tr>
+  <tr><td width="28"><img src="icons/eye.png" width="18" alt=""></td><td><code>o</code></td><td>Show or hide the detail pane</td></tr>
+  <tr><td width="28"><img src="icons/dots-three.png" width="18" alt=""></td><td><code>.</code></td><td>Actions menu</td></tr>
+  <tr><td width="28"><img src="icons/gear.png" width="18" alt=""></td><td><code>,</code></td><td>Settings</td></tr>
   <tr><td width="28"><img src="icons/x.png" width="18" alt=""></td><td><code>Esc</code> · <code>Backspace</code></td><td>Clear search, leave a show, then close</td></tr>
 </table>
 
@@ -67,12 +87,26 @@ index to search, a list of shows you follow, and mpv doing the playing.
 omarchy plugin add https://github.com/gran-software-solutions/podmarchy-omarchy-plugin.git --enable --yes
 ```
 
-The bar widget lands on the right; move it with `omarchy bar move`. For a
-keybinding too, add one in `~/.config/hypr/bindings.lua`:
+The bar widget lands on the right; move it with `omarchy bar move`.
 
-```lua
-o.bind("SUPER + ALT + P", "Podmarchy", "omarchy-shell shell toggle de.gransoftware.podmarchy")
-```
+### Open it with Super + Alt + P
+
+We suggest `Super + Alt + P` (P for podcasts) to open and close the panel.
+Omarchy doesn't use that key by default.
+
+1. Open `~/.config/hypr/bindings.lua` in your editor.
+2. Add this line at the end:
+
+   ```lua
+   o.bind("SUPER + ALT + P", "Podmarchy", "omarchy-shell shell toggle de.gransoftware.podmarchy")
+   ```
+
+3. Save. Hyprland reloads its config on save; if the key doesn't work yet, run
+   `hyprctl reload`.
+
+Press `Super + Alt + P` to open Podmarchy, and again to close it. Any other key
+works too: change the first argument, and if that key is already taken, add
+`hl.unbind("SUPER + ALT + P")` (with your key) on the line before.
 
 ### Connect Podcast Index
 

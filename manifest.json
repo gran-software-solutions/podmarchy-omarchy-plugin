@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "Gran Software Solutions",
   "license": "MIT",
-  "description": "Podcast player: discover shows on Podcast Index, subscribe, stream episodes and pick up where you left off",
+  "description": "Podcast player for the Omarchy shell. Search Podcast Index or browse trending shows, subscribe, and stream episodes through mpv that resume where you stopped. Playback survives closing the panel, media keys work via MPRIS, and a bar widget shows what's playing. Needs a free Podcast Index API key and secret.",
   "homepage": "https://github.com/gran-software-solutions/podmarchy-omarchy-plugin",
   "repository": "https://github.com/gran-software-solutions/podmarchy-omarchy-plugin",
   "keywords": [
