@@ -180,7 +180,7 @@ Item {
             id: keyField
             width: Style.space(220)
             placeholder: popup.root.apiConfigured ? "New API key" : "API key"
-            text: popup.root.keyDraft
+            text: popup.root.keyDraft || popup.root.savedKeyMask
             onEdited: function(value) { popup.root.keyDraft = value }
             onSubmitted: secretField.input.forceActiveFocus()
             Keys.onEscapePressed: { popup.root.helpOpen = false; popup.keyCatcher.forceActiveFocus() }
@@ -189,9 +189,9 @@ Item {
           PodmarchySettingsField {
             id: secretField
             width: Style.space(300)
-            placeholder: "API secret"
+            placeholder: popup.root.apiConfigured ? "New API secret" : "API secret"
             secret: true
-            text: popup.root.secretDraft
+            text: popup.root.secretDraft || popup.root.savedSecretMask
             onEdited: function(value) { popup.root.secretDraft = value }
             onSubmitted: popup.root.saveCredentials()
             Keys.onEscapePressed: { popup.root.helpOpen = false; popup.keyCatcher.forceActiveFocus() }

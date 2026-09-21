@@ -46,6 +46,8 @@ Item {
   property string helpTab: "settings"
   property string keyDraft: ""
   property string secretDraft: ""
+  property string savedKeyMask: ""
+  property string savedSecretMask: ""
   property string settingsMessage: ""
   property bool settingsError: false
 
@@ -61,6 +63,7 @@ Item {
   property string subscriptionsPath: stateDir + "/subscriptions.json"
   property string progressPath: stateDir + "/progress.json"
   property string settingsPath: stateDir + "/settings.json"
+  property string credentialsPath: stateDir + "/credentials.json"
   property string statusPath: runtimeDir + "/status.json"
   property string apiScript: Qt.resolvedUrl("podmarchy-api").toString().replace(/^file:\/\//, "")
   property string playerScript: Qt.resolvedUrl("podmarchy-player").toString().replace(/^file:\/\//, "")
@@ -395,6 +398,23 @@ Item {
 
   // ---- settings ----
 
+  function maskCredential(value) {
+    var s = String(value || "")
+    if (s.length <= 8) return "••••••••"
+    return s.slice(0, 4) + "••••" + s.slice(-4)
+  }
+
+  function loadCredentialsMask(raw) {
+    try {
+      var c = JSON.parse(String(raw || "{}"))
+      root.savedKeyMask = c.key ? root.maskCredential(c.key) : ""
+      root.savedSecretMask = c.secret ? "••••••••" : ""
+    } catch (e) {
+      root.savedKeyMask = ""
+      root.savedSecretMask = ""
+    }
+  }
+
   function loadSettings(raw) {
     try {
       var s = JSON.parse(String(raw || "{}"))
@@ -548,6 +568,17 @@ Item {
     printErrors: false
   }
 
+  FileView {
+    id: credentialsReader
+    path: root.credentialsPath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.loadCredentialsMask(text())
+    onLoadFailed: root.loadCredentialsMask("")
+    onFileChanged: reload()
+  }
+
   // mpv's status script rewrites this every second while an episode plays.
   // It only exists once podmarchy-player has run, hence statusReady.
   FileView {
@@ -633,6 +664,7 @@ Item {
         root.settingsMessage = "Saved. Podmarchy is connected to Podcast Index."
         root.keyDraft = ""
         root.secretDraft = ""
+        credentialsReader.reload()
         keyCatcher.forceActiveFocus()
         root.errorText = ""
         root.trending = []
