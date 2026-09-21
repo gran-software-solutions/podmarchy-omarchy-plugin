@@ -158,7 +158,10 @@ cmd_search() {
   term=${1:-}
   [[ -n ${term// /} ]] || fail "Type something to search for."
   [[ ${#term} -le 200 ]] || fail "Search term is too long."
-  json=$(call /search/byterm "q=$term" "max=40") || { printf '%s\n' "$json"; exit 1; }
+  # The podcastindex.org website passes &similar on its default "all" search;
+  # that makes the index match partial/substring terms instead of requiring
+  # the exact phrase in the title. Do the same so "todo cast" finds "Todo Cast".
+  json=$(call /search/byterm "q=$term" "max=40" "similar=") || { printf '%s\n' "$json"; exit 1; }
   # Podcast Index matches terms in the feed title only. If a plain search
   # returns nothing, retry with the words ANDed together so a query like
   # "hard fork" still finds "Hard Fork" even when word order differs.
