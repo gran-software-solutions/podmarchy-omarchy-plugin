@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "de.gransoftware.podmarchy",
+  "name": "Podmarchy",
+  "version": "0.1.0",
+  "author": "Gran Software Solutions",
+  "license": "MIT",
+  "description": "Podcast player: discover shows on Podcast Index, subscribe, stream episodes and pick up where you left off",
+  "homepage": "https://github.com/gran-software-solutions/podmarchy-omarchy-plugin",
+  "repository": "https://github.com/gran-software-solutions/podmarchy-omarchy-plugin",
+  "keywords": [
+    "podcast",
+    "audio",
+    "mpv",
+    "mpris",
+    "podcastindex"
+  ],
+  "kinds": [
+    "overlay",
+    "bar-widget"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "overlay": "Podmarchy.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Podmarchy",
+    "description": "Click to open Podmarchy. Right-click pauses or resumes, scroll seeks.",
+    "category": "Media",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
